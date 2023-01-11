@@ -96,21 +96,21 @@ u_d = cp.Parameter((2,1), value = np.zeros((2,1)))
 # Define Unrelaxed Optimization Problem
 u1 = cp.Variable((2,1))
 u1_ref = cp.Parameter((2,1), value = np.zeros((2,1)) )
-num_constraints_hard1 = 6
+num_constraints_hard1 = 2
 num_constraints_soft1 = 1
 A1_hard = cp.Parameter((num_constraints_hard1,2),value=np.zeros((num_constraints_hard1,2)))
 b1_hard = cp.Parameter((num_constraints_hard1,1),value=np.zeros((num_constraints_hard1,1)))
 A1_soft = cp.Parameter((num_constraints_soft1,2),value=np.zeros((num_constraints_soft1,2)))
 b1_soft = cp.Parameter((num_constraints_soft1,1),value=np.zeros((num_constraints_soft1,1)))
 slack_constraints1 = cp.Variable((num_constraints_soft1,1))
-const1 = [A1_hard @ u1 <= b1_hard, A1_soft @ u1 <= b1_soft + slack_constraints1]
+const1 = [A1_hard @ u1 <= b1_hard, A1_soft @ u1 <= b1_soft + slack_constraints1, cp.norm2(u1) <= U_max]
 objective1 = cp.Minimize( cp.sum_squares( u1 - u1_ref ) + 1000*cp.sum_squares(slack_constraints1))
 constrained_controller = cp.Problem( objective1, const1 ) 
 
 # Define Relaxed Optimization Problem
 u2 = cp.Variable((2,1))
 u2_ref = cp.Parameter((2,1), value = np.zeros((2,1)) )
-num_constraints_hard2 = 6
+num_constraints_hard2 = 2
 num_constraints_soft2 = 1
 A2_hard = cp.Parameter((num_constraints_hard2,2),value=np.zeros((num_constraints_hard2,2)))
 b2_hard = cp.Parameter((num_constraints_hard2,1),value=np.zeros((num_constraints_hard2,1)))
@@ -118,7 +118,7 @@ A2_soft = cp.Parameter((num_constraints_soft2,2),value=np.zeros((num_constraints
 b2_soft = cp.Parameter((num_constraints_soft2,1),value=np.zeros((num_constraints_soft2,1)))
 
 slack_constraints2 = cp.Variable((num_constraints_soft1,1))
-const2 = [A2_hard @ u2 <= b2_hard, A2_soft @ u2 <= b2_soft + slack_constraints2]
+const2 = [A2_hard @ u2 <= b2_hard, A2_soft @ u2 <= b2_soft + slack_constraints2, cp.norm2(u2) <= U_max]
 objective2 = cp.Minimize( cp.sum_squares( u2 - u2_ref )  + 1000*cp.sum_squares(slack_constraints2))
 relaxed_controller = cp.Problem( objective2, const2 ) 
 
@@ -134,13 +134,14 @@ x_list = np.zeros((2,num_steps))
 x_target_list = np.zeros((2,num_steps))
 
 disturbance = True
+
 with writer.saving(fig, movie_name, 100): 
 
     for i in range(num_steps):
 
         if disturbance:
             if (robot.X[0] >= -2 and robot.X[0]<=4) :
-                u_d.value = np.array([0.0,1.5]).reshape(2,1)
+                u_d.value = np.array([0.0,1.2]).reshape(2,1)
             else:
                 u_d.value = np.zeros((2,1))
 
@@ -162,25 +163,39 @@ with writer.saving(fig, movie_name, 100):
         robot.A1_hard[1,:] = np.array([0,1]).reshape(1,2)@robot.g()
         robot.b1_hard[1] = -np.array([0,1]).reshape(1,2)@robot.g()@u_d.value - betta2*h2 - np.array([0,1]).reshape(1,2)@robot.f()
     
-
-        robot.A1_hard[2:4,:] = np.eye(2)
-        robot.A1_hard[4:,:] = -np.eye(2)
-        robot.b1_hard[2:] = np.array([U_max,U_max,U_max,U_max]).reshape(4,1)
-
         A1_soft.value = robot.A1_soft
         b1_soft.value = robot.b1_soft
         A1_hard.value = robot.A1_hard
         b1_hard.value = robot.b1_hard
         u1_ref.value = robot.find_u_nominal(x_diff=x_diff,U_max=U_max,tol=tol,dt=dt)
         u_ref_list[:,i] = u1_ref.value.reshape(2,)
+        try:
+            constrained_controller.solve(solver=cp.GUROBI, reoptimize=True)
+        except:
+            print("Constrained Controller Failed")
+            robot.A1_hard[0,:] = np.zeros((1,2))
+            robot.b1_hard[0] = 0
+            """
+            robot.A1_hard[1,:] = np.zeros((1,2))
+            robot.b1_hard[1] = 0
+            """
+            print("here")
+            A2_hard.value = robot.A1_hard
+            b2_hard.value = robot.b1_hard
+            A2_soft.value = robot.A1_soft
+            b2_soft.value = robot.b1_soft
 
-        constrained_controller.solve(solver=cp.GUROBI, reoptimize=True)
+            u2_ref.value = u1_ref.value
+            relaxed_controller.solve(solver=cp.GUROBI, reoptimize=True)
+            robot.nextU = u2.value + u_d.value
+            
         if constrained_controller.status != "optimal":
             robot.A1_hard[0,:] = np.zeros((1,2))
             robot.b1_hard[0] = 0
-        
-            #robot.A1_hard[1,:] = np.zeros((1,2))
-            #robot.b1_hard[1] = 0
+            """
+            robot.A1_hard[1,:] = np.zeros((1,2))
+            robot.b1_hard[1] = 0
+            """
             print("here")
             A2_hard.value = robot.A1_hard
             b2_hard.value = robot.b1_hard
