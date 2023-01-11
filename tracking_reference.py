@@ -1,4 +1,5 @@
 import numpy as np
+import math
 import time
 import cvxpy as cp
 import matplotlib.pyplot as plt
@@ -11,8 +12,6 @@ from matplotlib.animation import FFMpegWriter
 plt.rcParams.update({'font.size': 15}) #27
 # Sim Parameters                  
 dt = 0.05
-tf = 12.0
-num_steps = int(tf/dt)
 t = 0
 
 # Define Parameters for CLF and CBF
@@ -20,10 +19,23 @@ alpha = 0.8
 betta1 = 0.8
 betta2 = 0.8
 d_max = 0.2
-y_max = 1.0
 alpha_cbf = 7.0 
 
 num_obstacles = 0
+
+"""
+# for straight line trajectory
+y_max = 1.0 
+x0 = np.array([0,0])
+tf = 12
+num_steps = int(tf/dt)
+U_max = 1.0
+
+# Define Trajectory
+trajectory_points = np.array([[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0],[8,0],[9,0],[10,0]])
+num_points = trajectory_points.shape[0]
+trajectory_time = 10
+trajectory = Trajectory2D(trajectory_points=trajectory_points,tot_time=trajectory_time,poly_degree=3)
 
 # Plot                  
 plt.ion()
@@ -39,7 +51,42 @@ ax.hlines(0, 0, 10, colors='r', linestyles='dashed')
 ax.hlines(d_max, 0, 10, 'k')
 ax.hlines(-d_max, 0, 10, 'k')
 movie_name = 'straight_line_trajectory_without_disturb.mp4'
-       
+"""
+
+
+# for curved trajectory
+y_max = 6.0
+x0 = np.array([5,0])
+tf = 25
+num_steps = int(tf/dt)
+U_max = 1.0
+
+
+# Define Trajectory
+radius = 5
+num_points = 11
+trajectory_points = PointsInCircum(radius,(num_points-1)*2)[0:num_points]
+trajectory_time = math.pi*radius/(U_max/math.sqrt(2))
+trajectory = Trajectory2D(trajectory_points=trajectory_points,tot_time=trajectory_time,poly_degree=5)
+
+# Plot                  
+plt.ion()
+fig = plt.figure()
+ax = plt.axes(xlim=(-6,6),ylim=(-2,8)) 
+ax.set_xlabel("X")
+ax.set_ylabel("Y")
+rect = patches.Rectangle((-5, y_max), 10, 4, linewidth=1, edgecolor='none', facecolor='k')
+# Add the patch to the Axes
+ax.add_patch(rect)
+ax.plot(trajectory_points[:,0],trajectory_points[:,1],'r--')
+max_allowed_trajectory = PointsInCircum(5+d_max,20)[0:11]
+min_allowed_trajectory = PointsInCircum(5-d_max,20)[0:11]
+ax.plot(max_allowed_trajectory[:,0],max_allowed_trajectory[:,1],'k')
+ax.plot(min_allowed_trajectory[:,0],min_allowed_trajectory[:,1],'k')
+
+movie_name = 'curved_trajectory_with_disturb.mp4'
+
+
 metadata = dict(title='Movie Test', artist='Matplotlib',comment='Movie support!')
 writer = FFMpegWriter(fps=15, metadata=metadata)
 
@@ -76,16 +123,8 @@ objective2 = cp.Minimize( cp.sum_squares( u2 - u2_ref )  + 1000*cp.sum_squares(s
 relaxed_controller = cp.Problem( objective2, const2 ) 
 
 # Define Robot
-robot = SingleIntegrator2D(np.array([0,0]), dt, ax, id = 0, color='r',palpha=1.0, alpha=alpha_cbf, num_constraints_hard = num_constraints_hard1, num_constraints_soft = num_constraints_soft1, num_obstacles=num_obstacles)
-U_max = 1.2
+robot = SingleIntegrator2D(x0, dt, ax, id = 0, color='r',palpha=1.0, alpha=alpha_cbf, num_constraints_hard = num_constraints_hard1, num_constraints_soft = num_constraints_soft1, num_obstacles=num_obstacles)
 tol = 0.01
-
-# Define Trajectory
-trajectory_points = np.array([[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0],[8,0],[9,0],[10,0]])
-num_points = trajectory_points.shape[0]
-trajectory_time = 10
-trajectory = Trajectory2D(trajectory_points=trajectory_points,tot_time=trajectory_time,poly_degree=3)
-
 
 # Define Lists for Plotting
 tp = np.arange(start=0,stop=tf,step=dt).reshape((num_steps, ))
@@ -94,13 +133,13 @@ u_ref_list = np.zeros((2, num_steps))
 x_list = np.zeros((2,num_steps))
 x_target_list = np.zeros((2,num_steps))
 
-disturbance = False
+disturbance = True
 with writer.saving(fig, movie_name, 100): 
 
     for i in range(num_steps):
 
         if disturbance:
-            if (t >= 3 and t<=7) :
+            if (robot.X[0] >= -2 and robot.X[0]<=4) :
                 u_d.value = np.array([0.0,1.5]).reshape(2,1)
             else:
                 u_d.value = np.zeros((2,1))
@@ -109,14 +148,15 @@ with writer.saving(fig, movie_name, 100):
         x_target_list[:,i] = curr_target.reshape(2,)
         x_list[:,i] = robot.X.reshape(2,)
         x_r_dot = trajectory.x_r_dot(t)
+
         x_diff = (robot.X-curr_target).reshape(1,2)[0]
         v = np.linalg.norm(x_diff)**2
         robot.A1_soft[0,:] = 2*(x_diff)@robot.g()
-        robot.b1_soft[0] = 2*(x_diff)@(x_r_dot-robot.f())-alpha*v-2*(x_diff)@(robot.f()+robot.g()@u_d.value)
+        robot.b1_soft[0] = 2*(x_diff)@(x_r_dot-robot.f())-alpha*v-2*(x_diff)@(robot.g()@u_d.value)
 
         h1 = np.linalg.norm(x_diff)**2 - d_max
         robot.A1_hard[0,:] = 2*(x_diff)@robot.g()
-        robot.b1_hard[0] = 2*(x_diff)@(x_r_dot-robot.f())-betta1*h1-2*(x_diff)@(robot.f()+robot.g()@u_d.value)
+        robot.b1_hard[0] = 2*(x_diff)@(x_r_dot-robot.f())-betta1*h1-2*(x_diff)@(robot.g()@u_d.value)
 
         h2 = robot.X[1]-y_max
         robot.A1_hard[1,:] = np.array([0,1]).reshape(1,2)@robot.g()
@@ -131,7 +171,7 @@ with writer.saving(fig, movie_name, 100):
         b1_soft.value = robot.b1_soft
         A1_hard.value = robot.A1_hard
         b1_hard.value = robot.b1_hard
-        u1_ref.value = robot.find_u_nominal(x_diff=x_diff,U_max=U_max,tol=tol)
+        u1_ref.value = robot.find_u_nominal(x_diff=x_diff,U_max=U_max,tol=tol,dt=dt)
         u_ref_list[:,i] = u1_ref.value.reshape(2,)
 
         constrained_controller.solve(solver=cp.GUROBI, reoptimize=True)
@@ -176,7 +216,7 @@ plt.plot(tp, u_ref_list[1,:])
 plt.legend(['u_1', 'u_2'])
 
 plt.figure(4)
-plt.plot(tp, x_list[0,:])
-plt.plot(tp, x_target_list[0,:])
+plt.plot(x_list[0,:], x_list[1,:])
+plt.plot(x_target_list[0,:], x_target_list[1,:])
 plt.legend(['x', 'x_target'])
 plt.show()

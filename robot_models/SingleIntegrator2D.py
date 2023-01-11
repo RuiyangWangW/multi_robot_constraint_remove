@@ -106,27 +106,33 @@ class SingleIntegrator2D:
             dh_dxj = -2*( self.X[0:2] - agent.X[0:2] ).T
         return h.reshape(-1,1), dh_dxi, dh_dxj        
     
-    def find_u_nominal(self,x_diff,U_max,tol):
+    def find_u_nominal(self,x_diff,U_max,dt,tol):
         theta = np.arctan2(x_diff[1],x_diff[0])
         u_nominal = np.zeros((2,1))
         x_diff = -x_diff
+
         if ((abs(x_diff[0])>tol) and (abs(x_diff[1]>tol))):
+            U_x_needed = abs(x_diff[0]/np.cos(theta))/dt
+            U_y_needed = abs(x_diff[1]/np.sin(theta))/dt
+            U_max = min(U_max,max(U_x_needed,U_y_needed))
             u_nominal = np.array([U_max*np.cos(theta),U_max*np.sin(theta)])
+
         elif ((abs(x_diff[0])<tol) and (abs(x_diff[1]>tol))):
-            if(abs(x_diff[1])>U_max):
+            if(abs(x_diff[1])>U_max*dt):
                 if x_diff[1] > 0:
                     u_nominal = np.array([0,U_max])
                 else:
                     u_nominal = np.array([0,-U_max])
             else:
-                u_nominal = np.array([0,x_diff[1]])
+                u_nominal = np.array([0,x_diff[1]/dt])
+    
         elif ((abs(x_diff[0])>tol) and (abs(x_diff[1]<tol))):
-            if(abs(x_diff[0])>U_max):
+            if(abs(x_diff[0])>U_max*dt):
                 if x_diff[0] > 0:
                     u_nominal = np.array([U_max,0])
                 else:
                     u_nominal = np.array([-U_max,0])
             else:
-                u_nominal = np.array([x_diff[0],0])
+                u_nominal = np.array([x_diff[0]/dt,0])
 
         return u_nominal.reshape(2,1)

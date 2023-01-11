@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 class Trajectory2D:
     def __init__(self, trajectory_points, tot_time, poly_degree):
@@ -26,4 +27,10 @@ class Trajectory2D:
         dx_r_dt[0] = np.polyval(poly_dx_dt, time)
         poly_dy_dt = np.polyder(self.poly_fit_y)
         dx_r_dt[1] = np.polyval(poly_dy_dt, time)
+        if(time>self.tot_time):
+            dx_r_dt = np.zeros((2,1))
         return dx_r_dt.reshape(2,1)
+
+def PointsInCircum(r,n=100):
+    Points = [(math.cos(2*math.pi/n*x)*r,math.sin(2*math.pi/n*x)*r) for x in range(0,n+1)]
+    return np.array(Points)
