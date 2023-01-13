@@ -5,7 +5,7 @@ import cvxpy as cp
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from robot_models.SingleIntegrator2D import *
-from trajectory_model import *
+from Trajectory_Model import *
 from matplotlib.animation import FFMpegWriter
 
 
@@ -133,7 +133,7 @@ u_ref_list = np.zeros((2, num_steps))
 x_list = np.zeros((2,num_steps))
 x_target_list = np.zeros((2,num_steps))
 
-disturbance = True
+disturbance = False
 
 with writer.saving(fig, movie_name, 100): 
 
@@ -145,12 +145,12 @@ with writer.saving(fig, movie_name, 100):
             else:
                 u_d.value = np.zeros((2,1))
 
-        curr_target = trajectory.get_current_target(t)
-        x_target_list[:,i] = curr_target.reshape(2,)
+        x_r = trajectory.get_current_target(t)
+        x_target_list[:,i] = x_r.reshape(2,)
         x_list[:,i] = robot.X.reshape(2,)
         x_r_dot = trajectory.x_r_dot(t)
 
-        x_diff = (robot.X-curr_target).reshape(1,2)[0]
+        x_diff = (robot.X-x_r).reshape(1,2)[0]
         v = np.linalg.norm(x_diff)**2
         robot.A1_soft[0,:] = 2*(x_diff)@robot.g()
         robot.b1_soft[0] = 2*(x_diff)@(x_r_dot-robot.f())-alpha*v-2*(x_diff)@(robot.g()@u_d.value)
@@ -167,7 +167,9 @@ with writer.saving(fig, movie_name, 100):
         b1_soft.value = robot.b1_soft
         A1_hard.value = robot.A1_hard
         b1_hard.value = robot.b1_hard
-        u1_ref.value = robot.find_u_nominal(x_diff=x_diff,U_max=U_max,tol=tol,dt=dt)
+
+        u1_ref.value = robot.nominal_input(x_r)
+        
         u_ref_list[:,i] = u1_ref.value.reshape(2,)
         try:
             constrained_controller.solve(solver=cp.GUROBI, reoptimize=True)
