@@ -133,15 +133,15 @@ u_ref_list = np.zeros((2, num_steps))
 x_list = np.zeros((2,num_steps))
 x_target_list = np.zeros((2,num_steps))
 
-disturbance = False
+disturbance = True
 
 with writer.saving(fig, movie_name, 100): 
 
     for i in range(num_steps):
 
         if disturbance:
-            if (robot.X[0] >= -2 and robot.X[0]<=4) :
-                u_d.value = np.array([0.0,1.2]).reshape(2,1)
+            if (t >= 6 and t<=12) :
+                u_d.value = np.array([0.0,1.5]).reshape(2,1)
             else:
                 u_d.value = np.zeros((2,1))
 

@@ -18,7 +18,7 @@ class Safe_Set_Series2D:
         x_diff = (robot_pos-self.centroids[:,self.id].reshape(2,1)).T
         A = 2*x_diff@robot_g
         h = self.evaluate_h(x_diff)
-        b = -self.alpha_list[self.id]*h-2*x_diff@(robot_f+robot_g@u_d)
+        b = -self.alpha_list[self.id]*h-2*x_diff@(robot_f+robot_g@u_d.value)
         return A, b
     
     def sets_reached(self,robot_pos):
@@ -31,7 +31,7 @@ class Safe_Set_Series2D:
     
     def update_targets(self, robot_pos, failed):
         if self.sets_reached(robot_pos) or failed:
-            if self.id < self.num_sets-1:
+            if self.id < self.num_sets:
                 self.id += 1
     
         
