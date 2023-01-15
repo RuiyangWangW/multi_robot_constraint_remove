@@ -3,7 +3,7 @@ from utils.utils import wrap_angle
 
 class Unicycle2D:
     
-    def __init__(self,X0,dt,ax,id = 0, mode = 'ego', target = 0, color='r',alpha = 0.8, palpha=1.0,plot=True, num_constraints = 0, num_robots = 1):
+    def __init__(self,X0,dt,ax,id = 0, mode = 'ego', target = 0, color='r',alpha = 0.8, palpha=1.0, plot=True, num_constraints_hard = 1, num_constraints_soft = 1):
         '''
         X0: iniytial state
         dt: simulation time step
@@ -38,14 +38,12 @@ class Unicycle2D:
         self.Xs = np.copy(self.X)
         self.Us = np.copy(self.U)
         
-        # to store constraints
-        self.A = np.zeros((num_constraints,2))
-        self.b = np.zeros((num_constraints,1))
-        self.agent_objective = [0] * num_robots
-        self.U_ref = np.array([0,0]).reshape(-1,1)
-        self.U_nominal = np.array([0,0]).reshape(-1,1)
-        self.alpha = alpha * np.ones((1,num_robots))
-        
+        self.A1_hard = np.zeros((num_constraints_hard,2))
+        self.b1_hard = np.zeros((num_constraints_hard,1))
+        self.A1_soft = np.zeros((num_constraints_soft,2))
+        self.b1_soft = np.zeros((num_constraints_soft,1))
+        self.slack_constraint = np.zeros((num_constraints_soft,1))
+   
     def f(self):
         return np.array([0,0,0,0]).reshape(-1,1)
     
@@ -58,9 +56,9 @@ class Unicycle2D:
     def Xdot(self):
         return self.f() + self.g() @ self.U     
          
-    def step(self,U): 
+    def step(self,U, U_d): 
         self.U = U.reshape(-1,1)
-        self.X = self.X + ( self.f() + self.g() @ self.U )*self.dt
+        self.X = self.X + ((self.f() + self.g() @ self.U)+U_d)*self.dt
         self.X[3,0] = wrap_angle(self.X[3,0])
         self.render_plot()
         self.Xs = np.append(self.Xs,self.X,axis=1)
@@ -98,7 +96,7 @@ class Unicycle2D:
         """
         return V, dV_dxi
     
-    def nominal_input(self,G, type, d_min = 0.3):
+    def nominal_input(self, G, d_min = 0.3):
         G = np.copy(G.reshape(-1,1))
         k_omega = 2.0 #0.5#2.5
         k_v = 3.0 #2.0 #0.5
@@ -121,16 +119,22 @@ class Unicycle2D:
         return - k2 * np.exp(k1-s)/( 1+np.exp( k1-s ) ) * ( 1 - self.sigma(s)/k2 )
     
     def static_safe_set(self, target, d_max):
+        
+        h = d_max - np.linalg.norm(self.X[0:3] - target[0:3])**2
+        dh_dx = -2*( self.X[0:3] - target[0:3] ).T
+        dh_dx = np.append(dh_dx,[[0]],axis=1)
+        return h , dh_dx
+        """
         beta = 1.01
-        theta= self.x[3,0]
-        h = beta*d_max**2 - np.linalg.norm(self.X[0:3] - target[0:3])**2 
+        theta= self.X[3,0]
+        h = beta*d_max - np.linalg.norm(self.X[0:3] - target[0:3])**2 
         s = ( self.X[0:3] - target[0:3]).T @ np.array( [np.cos(theta),np.sin(theta),0] ).reshape(-1,1)
         h = h - self.sigma(s)
             
         der_sigma = self.sigma_der(s)
         dh_dx = np.append( np.append(2*( self.X[0:2] - target[0:2] ).T,[[0]], axis=1) - der_sigma * ( np.array([ [np.cos(theta), np.sin(theta), 0] ]) ),  - der_sigma * ( -np.sin(theta)*( self.X[0,0]-target[0] ) + np.cos(theta)*( self.X[1,0] - target[1] ) ) , axis=1)
         return h , dh_dx
-    
+        """
 
     def agent_barrier(self, agent, d_min):
         

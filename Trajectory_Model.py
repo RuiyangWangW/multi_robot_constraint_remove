@@ -13,7 +13,7 @@ class Trajectory2D:
         self.poly_fit_x = np.polyfit(self.time_list, self.trajectory_points[:,0], deg=poly_degree)
         self.poly_fit_y = np.polyfit(self.time_list, self.trajectory_points[:,1], deg=poly_degree)
         if type == 'Unicycle':
-            self.poly_fit_theta = np.polyfit(self.time_list, self.trajectory_points[:,2], deg=poly_degree)
+            self.poly_fit_theta = np.polyfit(self.time_list, self.trajectory_points[:,3], deg=poly_degree)
         self.tot_time = tot_time
 
 
@@ -21,26 +21,26 @@ class Trajectory2D:
         if(time>self.tot_time):
             return self.trajectory_points[-1,:].reshape(-1,1)
         
-        target = np.zeros((3,1))
+        target = np.zeros((4,1))
         target[0] = np.polyval(self.poly_fit_x, time)
         target[1] = np.polyval(self.poly_fit_y, time)
         if self.type == 'Unicycle':
-            target[2] = np.polyval(self.poly_fit_theta, time)
+            target[3] = np.polyval(self.poly_fit_theta, time)
             return target
         else:
             return target[0:2].reshape(-1,1)
 
     def x_r_dot(self, time):
-        dx_r_dt = np.zeros((3,1))
+        dx_r_dt = np.zeros((4,1))
         poly_dx_dt = np.polyder(self.poly_fit_x)
         dx_r_dt[0] = np.polyval(poly_dx_dt, time)
         poly_dy_dt = np.polyder(self.poly_fit_y)
         dx_r_dt[1] = np.polyval(poly_dy_dt, time)
         if self.type == 'Unicycle':
             poly_dtheta_dt = np.polyder(self.poly_fit_theta)
-            dx_r_dt[2] == np.polyval(poly_dtheta_dt, time)
+            dx_r_dt[3] == np.polyval(poly_dtheta_dt, time)
             if time >= self.tot_time:
-                return np.zeros((3,1))
+                return np.zeros((4,1))
             else:
                 return dx_r_dt
         else:
@@ -52,4 +52,9 @@ class Trajectory2D:
 
 def PointsInCircum(r,n=100):
     Points = [(math.cos(2*math.pi/n*x)*r,math.sin(2*math.pi/n*x)*r) for x in range(0,n+1)]
+    return np.array(Points)
+
+
+def PointsInCircum_with_theta(r,n=100):
+    Points = [(math.cos(2*math.pi/n*x)*r,math.sin(2*math.pi/n*x)*r, 0, wrap_angle(2*math.pi/n*x+math.pi/2)) for x in range(0,n+1)]
     return np.array(Points)

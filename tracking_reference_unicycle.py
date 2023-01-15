@@ -8,7 +8,7 @@ from robot_models.SingleIntegrator2D import *
 from robot_models.Unicycle2D import *
 from Trajectory_Model import *
 from matplotlib.animation import FFMpegWriter
-
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 plt.rcParams.update({'font.size': 15}) #27
 # Sim Parameters                  
@@ -24,37 +24,6 @@ alpha_cbf = 7.0
 
 num_obstacles = 0
 
-"""
-# for straight line trajectory
-y_max = 1.0 
-x0 = np.array([0,0])
-tf = 12
-num_steps = int(tf/dt)
-U_max = 1.0
-
-# Define Trajectory
-trajectory_points = np.array([[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0],[8,0],[9,0],[10,0]])
-num_points = trajectory_points.shape[0]
-trajectory_time = 10
-trajectory = Trajectory2D(trajectory_points=trajectory_points,tot_time=trajectory_time,poly_degree=3)
-
-# Plot                  
-plt.ion()
-fig = plt.figure()
-ax = plt.axes(xlim=(-2,12),ylim=(-5,5)) 
-ax.set_xlabel("X")
-ax.set_ylabel("Y")
-rect = patches.Rectangle((0, y_max), 10, 4, linewidth=1, edgecolor='none', facecolor='k')
-# Add the patch to the Axes
-ax.add_patch(rect)
-
-ax.hlines(0, 0, 10, colors='r', linestyles='dashed')
-ax.hlines(d_max, 0, 10, 'k')
-ax.hlines(-d_max, 0, 10, 'k')
-movie_name = 'straight_line_trajectory_without_disturb.mp4'
-"""
-
-
 # for curved trajectory
 y_max = 6.0
 tf = 25
@@ -65,19 +34,48 @@ U_max = 1.0
 # Define Trajectory
 radius = 5
 num_points = 11
-trajectory_points = PointsInCircum(radius,(num_points-1)*2)[0:num_points]
+trajectory_points = PointsInCircum_with_theta(radius,(num_points-1)*2)[0:num_points]
 trajectory_time = math.pi*radius/(U_max/math.sqrt(2))
-trajectory = Trajectory2D(trajectory_points=trajectory_points,tot_time=trajectory_time,poly_degree=5)
+trajectory = Trajectory2D(trajectory_points=trajectory_points,tot_time=trajectory_time,poly_degree=5,type="Unicycle")
 
-# Plot                  
+# figure
 plt.ion()
-fig = plt.figure()
-ax = plt.axes(xlim=(-6,6),ylim=(-2,8)) 
-ax.set_xlabel("X")
-ax.set_ylabel("Y")
-rect = patches.Rectangle((-5, y_max), 10, 4, linewidth=1, edgecolor='none', facecolor='k')
-# Add the patch to the Axes
-ax.add_patch(rect)
+fig = plt.figure()#(dpi=100)
+# fig.set_size_inches(33, 15)
+ax = plt.axes(projection ="3d",xlim=(-6,6),ylim=(-2,8), zlim=(0,4.0))
+ax.set_xlabel('X')
+ax.set_ylabel('Y')
+ax.set_zlabel('Z')
+ax.set_box_aspect([1,1,4.0/10])
+
+# Set Bounding Box
+x_start = -5
+x_end = 5
+y_start = y_max
+y_end = 8
+z_start = 0
+z_end = 4
+
+x_ = np.linspace(start=x_start, stop=x_end, num=10)
+y_ = np.linspace(start=y_start, stop=y_end, num=10)
+z_ = np.linspace(start=z_start, stop=z_end, num=10)
+x, y = np.meshgrid(x_, y_)
+z = np.zeros(shape=x.shape)+z_start
+ax.plot_surface(x, y, z, color='black')
+z = np.zeros(shape=x.shape)+z_end
+ax.plot_surface(x, y, z, color='black')
+x, z = np.meshgrid(x_,z_)
+y = np.zeros(x.shape)+y_start
+ax.plot_surface(x, y ,z, color='black')
+y = np.zeros(x.shape)+y_end
+ax.plot_surface(x, y ,z, color='black')
+y, z = np.meshgrid(y_,z_)
+x = np.zeros(y.shape)+x_start
+ax.plot_surface(x, y ,z, color='black')
+x = np.zeros(y.shape)+x_end
+ax.plot_surface(x, y ,z, color='black')
+
+
 ax.plot(trajectory_points[:,0],trajectory_points[:,1],'r--')
 max_allowed_trajectory = PointsInCircum(5+d_max,20)[0:11]
 min_allowed_trajectory = PointsInCircum(5-d_max,20)[0:11]
@@ -86,12 +84,11 @@ ax.plot(min_allowed_trajectory[:,0],min_allowed_trajectory[:,1],'k')
 
 movie_name = 'curved_trajectory_with_disturb.mp4'
 
-
 metadata = dict(title='Movie Test', artist='Matplotlib',comment='Movie support!')
 writer = FFMpegWriter(fps=15, metadata=metadata)
 
 # Define Disturbance 
-u_d = cp.Parameter((2,1), value = np.zeros((2,1)))
+u_d = cp.Parameter((4,1), value = np.zeros((4,1)))
 
 # Define Unrelaxed Optimization Problem
 u1 = cp.Variable((2,1))
@@ -123,14 +120,14 @@ objective2 = cp.Minimize( cp.sum_squares( u2 - u2_ref )  + 1000*cp.sum_squares(s
 relaxed_controller = cp.Problem( objective2, const2 ) 
 
 # Define Robot
-robot = Unicycle2D(np.array([5,0,0,np.pi/2]), dt, ax, num_robots=1, id = 0, color='g',palpha=1.0, alpha=alpha_cbf, num_constraints_hard = num_constraints_hard1, num_constraints_soft = num_constraints_soft1)
+robot = Unicycle2D(np.array([5,0,0,np.pi/2.0]), dt, ax, id = 0, color='r',palpha=1.0, alpha=alpha_cbf, num_constraints_hard = num_constraints_hard1, num_constraints_soft = num_constraints_soft1)
 
 # Define Lists for Plotting
 tp = np.arange(start=0,stop=tf,step=dt).reshape((num_steps, ))
-u_list = np.zeros((3, num_steps))
-u_ref_list = np.zeros((3, num_steps))
-x_list = np.zeros((3,num_steps))
-x_target_list = np.zeros((3,num_steps))
+u_list = np.zeros((2, num_steps))
+u_ref_list = np.zeros((2, num_steps))
+x_list = np.zeros((4,num_steps))
+x_target_list = np.zeros((4,num_steps))
 
 disturbance = True
 
@@ -140,30 +137,28 @@ with writer.saving(fig, movie_name, 100):
 
         if disturbance:
             if (t >= 6 and t<=12) :
-                u_d.value = np.array([0.0,1.5,0.0]).reshape(3,1)
+                u_d.value = np.array([0.0,1.5,0.0,0.0]).reshape(4,1)
             else:
-                u_d.value = np.zeros((3,1))
+                u_d.value = np.zeros((4,1))
 
         x_r = trajectory.get_current_target(t)
-        x_target_list[:,i] = x_r.reshape(3,)
-        x_list[:,i] = robot.X.reshape(3,)
+        x_target_list[:,i] = x_r.reshape(4,)
+        x_list[:,i] = robot.X.reshape(4,)
         x_r_dot = trajectory.x_r_dot(t)
 
-        v, dv_dx = robot.lyapunov(x_r)
+        v, dv_dx = robot.lyapunov(x_r) 
         robot.A1_soft[0,:] = dv_dx@robot.g()
-        robot.b1_soft[0] = dv_dx@(x_r_dot-robot.f()) - alpha*v - dv_dx@robot.g()@u_d.value
+        robot.b1_soft[0] = dv_dx@(x_r_dot-robot.f()) - alpha*v - dv_dx@u_d.value
 
-        h1, dh1_dx = robot.static_safe_set(x_r,d_max)
-    
-        robot.A1_hard[0,:] = dh1_dx@robot.g()
-        robot.b1_hard[0] = dh1_dx@(x_r_dot-robot.f())-betta1*h1-dh1_dx@robot.g()@u_d.value
+        h1, dh1_dx = robot.static_safe_set(x_r,d_max)    
+        robot.A1_hard[0,:] = -dh1_dx@robot.g()
+        robot.b1_hard[0] = -dh1_dx@(x_r_dot-robot.f()) + betta1*h1 + dh1_dx@u_d.value
 
-        """
-        h2 = robot.X[1]-y_max
-        robot.A1_hard[1,:] = np.array([0,1]).reshape(1,2)@robot.g()
-        robot.b1_hard[1] = -np.array([0,1]).reshape(1,2)@robot.g()@u_d.value - betta2*h2 - np.array([0,1]).reshape(1,2)@robot.f()
-        """
         
+        h2 = robot.X[1]-y_max
+        robot.A1_hard[1,:] = np.array([0,1,0,0]).reshape(1,4)@robot.g()
+        robot.b1_hard[1] = -np.array([0,1,0,0]).reshape(1,4)@u_d.value - betta2*h2 - np.array([0,1,0,0]).reshape(1,4)@robot.f()   
+
         A1_soft.value = robot.A1_soft
         b1_soft.value = robot.b1_soft
         A1_hard.value = robot.A1_hard
@@ -171,7 +166,7 @@ with writer.saving(fig, movie_name, 100):
 
         u1_ref.value = robot.nominal_input(x_r)
         
-        #u_ref_list[:,i] = u1_ref.value.reshape(2,)
+        u_ref_list[:,i] = u1_ref.value.reshape(2,)
         try:
             constrained_controller.solve(solver=cp.GUROBI, reoptimize=True)
         except:
@@ -190,7 +185,7 @@ with writer.saving(fig, movie_name, 100):
 
             u2_ref.value = u1_ref.value
             relaxed_controller.solve(solver=cp.GUROBI, reoptimize=True)
-            robot.nextU = u2.value + u_d.value
+            robot.nextU = u2.value
             
         if constrained_controller.status != "optimal":
             robot.A1_hard[0,:] = np.zeros((1,2))
@@ -207,12 +202,12 @@ with writer.saving(fig, movie_name, 100):
 
             u2_ref.value = u1_ref.value
             relaxed_controller.solve(solver=cp.GUROBI, reoptimize=True)
-            robot.nextU = u2.value + u_d.value
+            robot.nextU = u2.value
         else:
-            robot.nextU = u1.value + u_d.value
+            robot.nextU = u1.value
 
-        #u_list[:,i] = robot.nextU.reshape(2,)
-        robot.step(robot.nextU)
+        u_list[:,i] = robot.nextU.reshape(2,)
+        robot.step(robot.nextU, u_d.value)
         robot.render_plot()
 
         t = t + dt
