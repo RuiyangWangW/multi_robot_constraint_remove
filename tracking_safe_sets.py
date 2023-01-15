@@ -97,6 +97,7 @@ with writer.saving(fig, movie_name, 100):
         print("h = ", Safe_Set_Series.evaluate_h(x_diff))
         print("Au = ", A1_hard@u1.value)
         print("b = ", b1_hard)
+        
         if constrained_controller.status != "optimal" or A1_hard@u1.value > b1_hard:
             print("here")
             Safe_Set_Series.update_targets(robot_pos=robot.X,failed=True)
