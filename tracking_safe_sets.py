@@ -79,7 +79,7 @@ with writer.saving(fig, movie_name, 100):
 
         if disturbance:
             if (t >= 6 and t<=10) :
-                u_d.value = np.array([0.0,3.0]).reshape(2,1)
+                u_d.value = np.array([0.0,2.5]).reshape(2,1)
             else:
                 u_d.value = np.zeros((2,1))
 
@@ -95,7 +95,7 @@ with writer.saving(fig, movie_name, 100):
         constrained_controller.solve(solver=cp.GUROBI, reoptimize=True)
         print("Au value: ", A1_hard@u1.value)
         print("b value: ", b1_hard)
-        if constrained_controller.status != "optimal" or A1_hard@u1.value < b1_hard:
+        if constrained_controller.status != "optimal" or A1_hard@u1.value > b1_hard:
             print("here")
             Safe_Set_Series.update_targets(robot=robot,failed=True)
             robot.A1_hard, robot.b1_hard = Safe_Set_Series.safe_set_constraints(robot = robot, u_d=u_d)
