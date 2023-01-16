@@ -82,7 +82,7 @@ min_allowed_trajectory = PointsInCircum(5-d_max,20)[0:11]
 ax.plot(max_allowed_trajectory[:,0],max_allowed_trajectory[:,1],'k')
 ax.plot(min_allowed_trajectory[:,0],min_allowed_trajectory[:,1],'k')
 
-movie_name = 'curved_trajectory_with_disturb.mp4'
+movie_name = 'curved_trajectory_with_disturb_3D.mp4'
 
 metadata = dict(title='Movie Test', artist='Matplotlib',comment='Movie support!')
 writer = FFMpegWriter(fps=15, metadata=metadata)
