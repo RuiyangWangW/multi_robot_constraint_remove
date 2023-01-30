@@ -27,7 +27,7 @@ y_max = 6.0
 x0 = np.array([5,0])
 tf = 25
 num_steps = int(tf/dt)
-U_max = 1.0
+U_max = 2.0
 
 
 # Define Trajectory
@@ -52,7 +52,7 @@ min_allowed_trajectory = PointsInCircum(5-d_max,20)[0:11]
 ax.plot(max_allowed_trajectory[:,0],max_allowed_trajectory[:,1],'k')
 ax.plot(min_allowed_trajectory[:,0],min_allowed_trajectory[:,1],'k')
 
-movie_name = 'curved_trajectory_with_disturb.mp4'
+movie_name = 'curved_trajectory_with_disturb_alpha.mp4'
 
 
 metadata = dict(title='Movie Test', artist='Matplotlib',comment='Movie support!')
@@ -67,6 +67,7 @@ u1_ref = cp.Parameter((2,1), value = np.zeros((2,1)) )
 num_constraints_hard1 = 2
 num_constraints_soft1 = 1
 alpha = cp.Variable((num_constraints_hard1,1))
+alpha_min = cp.Parameter((2,1), value = np.zeros((2,1)))
 alpha_0 = cp.Parameter((num_constraints_hard1,1))
 alpha_0.value = np.array([0.8,0.8]).reshape(num_constraints_hard1,1)
 h = cp.Parameter((num_constraints_hard1,1))
@@ -75,7 +76,7 @@ b1_hard = cp.Parameter((num_constraints_hard1,1),value=np.zeros((num_constraints
 A1_soft = cp.Parameter((num_constraints_soft1,2),value=np.zeros((num_constraints_soft1,2)))
 b1_soft = cp.Parameter((num_constraints_soft1,1),value=np.zeros((num_constraints_soft1,1)))
 slack_constraints1 = cp.Variable((num_constraints_soft1,1))
-const1 = [A1_hard @ u1 <= b1_hard + cp.multiply(alpha,h), A1_soft @ u1 <= b1_soft + slack_constraints1, cp.norm2(u1) <= U_max]
+const1 = [A1_hard @ u1 <= b1_hard + cp.multiply(alpha,h), A1_soft @ u1 <= b1_soft + slack_constraints1, cp.norm2(u1) <= U_max, alpha>=alpha_min]
 objective1 = cp.Minimize( cp.sum_squares( u1 - u1_ref ) + 1000*cp.sum_squares(slack_constraints1) +1000*cp.sum_squares(alpha-alpha_0))
 constrained_controller = cp.Problem( objective1, const1 ) 
 
@@ -103,8 +104,8 @@ u_ref_list = np.zeros((2, num_steps))
 x_list = np.zeros((2,num_steps))
 x_target_list = np.zeros((2,num_steps))
 
-disturbance = False
-delta_alpha_thresh = 100
+disturbance = True
+delta_alpha_thresh = 20
 
 with writer.saving(fig, movie_name, 100): 
 
@@ -112,7 +113,7 @@ with writer.saving(fig, movie_name, 100):
 
         if disturbance:
             if (t >= 6 and t<=12) :
-                u_d.value = np.array([0.0,1.5]).reshape(2,1)
+                u_d.value = np.array([0.0,1.8]).reshape(2,1)
             else:
                 u_d.value = np.zeros((2,1))
 
@@ -125,12 +126,11 @@ with writer.saving(fig, movie_name, 100):
         robot.A1_soft[0,:] = dv_dx@robot.g()
         robot.b1_soft[0] = dv_dx@(x_r_dot-robot.f()) - alpha_clf*v - dv_dx@robot.g()@u_d.value
         
-        
         h1, dh1_dx = robot.static_safe_set(x_r,d_max)    
         robot.A1_hard[0,:] = -dh1_dx@robot.g()
         robot.b1_hard[0] = -dh1_dx@(x_r_dot-robot.f()) + dh1_dx@robot.g()@u_d.value
 
-        h2 = (robot.X[1]-y_max)[0]
+        h2 = (y_max - robot.X[1])[0]
         robot.A1_hard[1,:] = np.array([0,1]).reshape(1,2)@robot.g()
         robot.b1_hard[1] = -np.array([0,1]).reshape(1,2)@robot.g()@u_d.value - np.array([0,1]).reshape(1,2)@robot.f()
 
@@ -146,15 +146,11 @@ with writer.saving(fig, movie_name, 100):
         u_ref_list[:,i] = u1_ref.value.reshape(2,)
     
         constrained_controller.solve(solver=cp.GUROBI, reoptimize=True)
-
-        print("value for alpha[0], ", alpha.value[0])
-        print("value for h1 ", h1)
-        #print("value for alpha[1], ", alpha.value[1])
-
+        
         if (constrained_controller.status != "optimal") or ((alpha.value[0]-alpha_0.value[0])>delta_alpha_thresh):
-            robot.A1_hard.value[0,:] = np.zeros((1,2))
-            robot.b1_hard.value[0] = 0
-            print("here")
+            robot.A1_hard[0,:] = np.zeros((1,2))
+            robot.b1_hard[0] = 0
+            print(t)
             A2_hard.value = robot.A1_hard
             b2_hard.value = robot.b1_hard
             A2_soft.value = robot.A1_soft

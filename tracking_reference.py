@@ -59,7 +59,7 @@ y_max = 6.0
 x0 = np.array([5,0])
 tf = 25
 num_steps = int(tf/dt)
-U_max = 1.0
+U_max = 2.0
 
 
 # Define Trajectory
@@ -140,7 +140,7 @@ with writer.saving(fig, movie_name, 100):
 
         if disturbance:
             if (t >= 6 and t<=12) :
-                u_d.value = np.array([0.0,1.5]).reshape(2,1)
+                u_d.value = np.array([0.0,1.8]).reshape(2,1)
             else:
                 u_d.value = np.zeros((2,1))
 
@@ -174,13 +174,14 @@ with writer.saving(fig, movie_name, 100):
         constrained_controller.solve(solver=cp.GUROBI, reoptimize=True)
         
         if constrained_controller.status != "optimal":
-            robot.A1_hard.value[0,:] = np.zeros((1,2))
-            robot.b1_hard.value[0] = 0
+            robot.A1_hard[0,:] = np.zeros((1,2))
+            robot.b1_hard[0] = 0
             """
             robot.A1_hard[1,:] = np.zeros((1,2))
             robot.b1_hard[1] = 0
             """
-            print("here")
+            print(t)
+
             A2_hard.value = robot.A1_hard
             b2_hard.value = robot.b1_hard
             A2_soft.value = robot.A1_soft
