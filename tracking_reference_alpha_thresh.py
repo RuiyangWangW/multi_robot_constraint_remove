@@ -114,7 +114,7 @@ with writer.saving(fig, movie_name, 100):
 
         if disturbance:
             if (t >= 6 and t<=12) :
-                u_d.value = np.array([0.0,1.8]).reshape(2,1)
+                u_d.value = np.array([0.0,2.0]).reshape(2,1)
             else:
                 u_d.value = np.zeros((2,1))
 
@@ -168,6 +168,7 @@ with writer.saving(fig, movie_name, 100):
                 robot.nextU = u1.value + u_d.value
 
         except:
+            print("here")
             robot.A1_hard[0,:] = np.zeros((1,2))
             robot.b1_hard[0] = 0
             A2_hard.value = robot.A1_hard

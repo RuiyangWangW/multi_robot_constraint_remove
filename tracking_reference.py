@@ -140,7 +140,7 @@ with writer.saving(fig, movie_name, 100):
 
         if disturbance:
             if (t >= 6 and t<=12) :
-                u_d.value = np.array([0.0,1.8]).reshape(2,1)
+                u_d.value = np.array([0.0,2.0]).reshape(2,1)
             else:
                 u_d.value = np.zeros((2,1))
 
@@ -171,17 +171,29 @@ with writer.saving(fig, movie_name, 100):
         u_ref_list[:,i] = u1_ref.value.reshape(2,)
     
     
-        constrained_controller.solve(solver=cp.GUROBI, reoptimize=True)
-        
-        if constrained_controller.status != "optimal":
+        try: 
+            constrained_controller.solve(solver=cp.GUROBI, reoptimize=True)
+            if  constrained_controller.status!="optimal":
+                robot.A1_hard[0,:] = np.zeros((1,2))
+                robot.b1_hard[0] = 0
+                A2_hard.value = robot.A1_hard
+                b2_hard.value = robot.b1_hard
+                A2_soft.value = robot.A1_soft
+                b2_soft.value = robot.b1_soft
+
+                u2_ref.value = u1_ref.value
+                relaxed_controller.solve(solver=cp.GUROBI, reoptimize=True)
+                if (relaxed_controller.status!="optimal"):
+                    break
+                robot.nextU = u2.value + u_d.value
+
+            else:
+                robot.nextU = u1.value + u_d.value
+
+        except:
+            print("here")
             robot.A1_hard[0,:] = np.zeros((1,2))
             robot.b1_hard[0] = 0
-            """
-            robot.A1_hard[1,:] = np.zeros((1,2))
-            robot.b1_hard[1] = 0
-            """
-            print(t)
-
             A2_hard.value = robot.A1_hard
             b2_hard.value = robot.b1_hard
             A2_soft.value = robot.A1_soft
@@ -189,10 +201,9 @@ with writer.saving(fig, movie_name, 100):
 
             u2_ref.value = u1_ref.value
             relaxed_controller.solve(solver=cp.GUROBI, reoptimize=True)
+            if (relaxed_controller.status!="optimal"):
+                break
             robot.nextU = u2.value + u_d.value
-        else:
-            robot.nextU = u1.value + u_d.value
-
         u_list[:,i] = robot.nextU.reshape(2,)
         robot.step(robot.nextU)
         robot.render_plot()
