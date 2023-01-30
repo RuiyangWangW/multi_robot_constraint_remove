@@ -139,8 +139,8 @@ with writer.saving(fig, movie_name, 100):
     for i in range(num_steps):
 
         if disturbance:
-            if (t >= 6 and t<=12) :
-                u_d.value = np.array([0.0,2.5]).reshape(2,1)
+            if (t >= 5 and t<=10) :
+                u_d.value = np.array([0.0,1.2]).reshape(2,1)
             else:
                 u_d.value = np.zeros((2,1))
 
@@ -180,7 +180,7 @@ with writer.saving(fig, movie_name, 100):
                 b2_hard.value = robot.b1_hard
                 A2_soft.value = robot.A1_soft
                 b2_soft.value = robot.b1_soft
-
+                print(t)
                 u2_ref.value = u1_ref.value
                 relaxed_controller.solve(solver=cp.GUROBI, reoptimize=True)
                 if (relaxed_controller.status!="optimal"):
@@ -191,7 +191,7 @@ with writer.saving(fig, movie_name, 100):
                 robot.nextU = u1.value + u_d.value
 
         except:
-            print("here")
+            print(t)
             robot.A1_hard[0,:] = np.zeros((1,2))
             robot.b1_hard[0] = 0
             A2_hard.value = robot.A1_hard
