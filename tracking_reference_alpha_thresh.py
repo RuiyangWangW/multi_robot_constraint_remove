@@ -52,7 +52,7 @@ min_allowed_trajectory = PointsInCircum(5-d_max,20)[0:11]
 ax.plot(max_allowed_trajectory[:,0],max_allowed_trajectory[:,1],'k')
 ax.plot(min_allowed_trajectory[:,0],min_allowed_trajectory[:,1],'k')
 
-movie_name = 'curved_trajectory_with_disturb_alpha.mp4'
+movie_name = 'curved_trajectory_with_small_disturb_alpha.mp4'
 
 
 metadata = dict(title='Movie Test', artist='Matplotlib',comment='Movie support!')
@@ -114,7 +114,7 @@ with writer.saving(fig, movie_name, 100):
 
         if disturbance:
             if (t >= 6 and t<=12) :
-                u_d.value = np.array([0.0,2.0]).reshape(2,1)
+                u_d.value = np.array([0.0,2.5]).reshape(2,1)
             else:
                 u_d.value = np.zeros((2,1))
 
