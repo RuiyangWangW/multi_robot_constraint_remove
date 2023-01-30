@@ -19,19 +19,24 @@ num_steps = int(tf/dt)
 # Define Parameters for CLF and CBF
 alpha_cbf = 7.0 
 num_obstacles = 0
-U_max = 2.0
+U_max = 3.0
 
 # Define Series of Safe Sets
 num_points = 11
 centroids = PointsInCircum(10,(num_points-1)*2)[1:num_points]
+centroids[6,1] = centroids[6,1] - 1.0
+centroids[7,1] = centroids[7,1] + 7;
+centroids[8,1] = centroids[8,1] + 9;
+centroids[9,1] = centroids[9,1] + 11;
+centroids[9,0] = centroids[9,0] - 2;
 radii = np.zeros((centroids.shape[0],))+0.7
-alpha_list = np.zeros((centroids.shape[0],))+0.8
+alpha_list = np.zeros((centroids.shape[0],))+1.0 #0.8
 Safe_Set_Series = Safe_Set_Series2D(centroids=centroids,radii=radii,alpha_list=alpha_list)
 
 # Plot                  
 plt.ion()
 fig = plt.figure()
-ax = plt.axes(xlim=(-2,12),ylim=(-7,7)) 
+ax = plt.axes(xlim=(-2,12),ylim=(-7,10)) 
 ax.set_xlabel("X")
 ax.set_ylabel("Y")
 
@@ -79,28 +84,32 @@ with writer.saving(fig, movie_name, 100):
 
         if disturbance:
             if (t >= 6 and t<=10) :
-                u_d.value = np.array([0.0,2.5]).reshape(2,1)
+                u_d.value = np.array([0.0,2.0]).reshape(2,1) #2.5
             else:
                 u_d.value = np.zeros((2,1))
 
         Safe_Set_Series.update_targets(robot = robot, failed=False)
         robot.A1_hard, robot.b1_hard = Safe_Set_Series.safe_set_constraints(robot = robot, u_d=u_d)
-        A1_hard = robot.A1_hard
-        b1_hard = robot.b1_hard
+        A1_hard.value = robot.A1_hard
+        b1_hard.value = robot.b1_hard
 
         u1_ref.value = robot.nominal_input(Safe_Set_Series.centroids[Safe_Set_Series.id,:].reshape(2,1))
         
         u_ref_list[:,i] = u1_ref.value.reshape(2,)
 
         constrained_controller.solve(solver=cp.GUROBI, reoptimize=True)
-        print("Au value: ", A1_hard@u1.value)
-        print("b value: ", b1_hard)
-        if constrained_controller.status != "optimal" or A1_hard@u1.value > b1_hard:
+        # print("Au value: ", A1_hard.value@u1.value)
+        # print("b value: ", b1_hard.value)
+        
+        # if constrained_controller.status == "optimal" and A1_hard.value@u1.value > b1_hard.value:
+        #     print("ERROR")
+        
+        while constrained_controller.status != "optimal":# or (A1_hard@u1 - b1_hard).value > 0:
             print("here")
             Safe_Set_Series.update_targets(robot=robot,failed=True)
             robot.A1_hard, robot.b1_hard = Safe_Set_Series.safe_set_constraints(robot = robot, u_d=u_d)
-            A1_hard = robot.A1_hard
-            b1_hard = robot.b1_hard
+            A1_hard.value = robot.A1_hard
+            b1_hard.value = robot.b1_hard
             u1_ref.value = robot.nominal_input(Safe_Set_Series.centroids[Safe_Set_Series.id,:].reshape(2,1))
             u_ref_list[:,i] = u1_ref.value.reshape(2,)
             constrained_controller.solve(solver=cp.GUROBI, reoptimize=True)
