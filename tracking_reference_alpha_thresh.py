@@ -15,43 +15,11 @@ dt = 0.05
 t = 0
 
 # Define Parameters for CLF and CBF
-alpha = 0.8
-betta1 = 0.8
-betta2 = 0.8
+alpha_clf = 0.8
+betta_cbf = 0.8
 d_max = 0.2
-alpha_cbf = 7.0 
 
 num_obstacles = 0
-
-"""
-# for straight line trajectory
-y_max = 1.0 
-x0 = np.array([0,0])
-tf = 12
-num_steps = int(tf/dt)
-U_max = 1.0
-
-# Define Trajectory
-trajectory_points = np.array([[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0],[8,0],[9,0],[10,0]])
-num_points = trajectory_points.shape[0]
-trajectory_time = 10
-trajectory = Trajectory2D(trajectory_points=trajectory_points,tot_time=trajectory_time,poly_degree=3)
-
-# Plot                  
-plt.ion()
-fig = plt.figure()
-ax = plt.axes(xlim=(-2,12),ylim=(-5,5)) 
-ax.set_xlabel("X")
-ax.set_ylabel("Y")
-rect = patches.Rectangle((0, y_max), 10, 4, linewidth=1, edgecolor='none', facecolor='k')
-# Add the patch to the Axes
-ax.add_patch(rect)
-
-ax.hlines(0, 0, 10, colors='r', linestyles='dashed')
-ax.hlines(d_max, 0, 10, 'k')
-ax.hlines(-d_max, 0, 10, 'k')
-movie_name = 'straight_line_trajectory_without_disturb.mp4'
-"""
 
 
 # for curved trajectory
@@ -98,13 +66,17 @@ u1 = cp.Variable((2,1))
 u1_ref = cp.Parameter((2,1), value = np.zeros((2,1)) )
 num_constraints_hard1 = 2
 num_constraints_soft1 = 1
+alpha = cp.Variable((num_constraints_hard1,1))
+alpha_0 = cp.Parameter((num_constraints_hard1,1))
+alpha_0.value = np.array([0.8,0.8]).reshape(num_constraints_hard1,1)
+h = cp.Parameter((num_constraints_hard1,1))
 A1_hard = cp.Parameter((num_constraints_hard1,2),value=np.zeros((num_constraints_hard1,2)))
 b1_hard = cp.Parameter((num_constraints_hard1,1),value=np.zeros((num_constraints_hard1,1)))
 A1_soft = cp.Parameter((num_constraints_soft1,2),value=np.zeros((num_constraints_soft1,2)))
 b1_soft = cp.Parameter((num_constraints_soft1,1),value=np.zeros((num_constraints_soft1,1)))
 slack_constraints1 = cp.Variable((num_constraints_soft1,1))
-const1 = [A1_hard @ u1 <= b1_hard, A1_soft @ u1 <= b1_soft + slack_constraints1, cp.norm2(u1) <= U_max]
-objective1 = cp.Minimize( cp.sum_squares( u1 - u1_ref ) + 1000*cp.sum_squares(slack_constraints1))
+const1 = [A1_hard @ u1 <= b1_hard + cp.multiply(alpha,h), A1_soft @ u1 <= b1_soft + slack_constraints1, cp.norm2(u1) <= U_max]
+objective1 = cp.Minimize( cp.sum_squares( u1 - u1_ref ) + 1000*cp.sum_squares(slack_constraints1) +1000*cp.sum_squares(alpha-alpha_0))
 constrained_controller = cp.Problem( objective1, const1 ) 
 
 # Define Relaxed Optimization Problem
@@ -116,10 +88,9 @@ A2_hard = cp.Parameter((num_constraints_hard2,2),value=np.zeros((num_constraints
 b2_hard = cp.Parameter((num_constraints_hard2,1),value=np.zeros((num_constraints_hard2,1)))
 A2_soft = cp.Parameter((num_constraints_soft2,2),value=np.zeros((num_constraints_soft2,2)))
 b2_soft = cp.Parameter((num_constraints_soft2,1),value=np.zeros((num_constraints_soft2,1)))
-
-slack_constraints2 = cp.Variable((num_constraints_soft1,1))
+slack_constraints2 = cp.Variable((num_constraints_soft2,1))
 const2 = [A2_hard @ u2 <= b2_hard, A2_soft @ u2 <= b2_soft + slack_constraints2, cp.norm2(u2) <= U_max]
-objective2 = cp.Minimize( cp.sum_squares( u2 - u2_ref )  + 1000*cp.sum_squares(slack_constraints2))
+objective2 = cp.Minimize( cp.sum_squares( u2 - u2_ref ) + 1000*cp.sum_squares(slack_constraints1))
 relaxed_controller = cp.Problem( objective2, const2 ) 
 
 # Define Robot
@@ -132,7 +103,8 @@ u_ref_list = np.zeros((2, num_steps))
 x_list = np.zeros((2,num_steps))
 x_target_list = np.zeros((2,num_steps))
 
-disturbance = True
+disturbance = False
+delta_alpha_thresh = 100
 
 with writer.saving(fig, movie_name, 100): 
 
@@ -151,16 +123,19 @@ with writer.saving(fig, movie_name, 100):
 
         v, dv_dx = robot.lyapunov(x_r) 
         robot.A1_soft[0,:] = dv_dx@robot.g()
-        robot.b1_soft[0] = dv_dx@(x_r_dot-robot.f()) - alpha*v - dv_dx@robot.g()@u_d.value
-
+        robot.b1_soft[0] = dv_dx@(x_r_dot-robot.f()) - alpha_clf*v - dv_dx@robot.g()@u_d.value
+        
+        
         h1, dh1_dx = robot.static_safe_set(x_r,d_max)    
         robot.A1_hard[0,:] = -dh1_dx@robot.g()
-        robot.b1_hard[0] = -dh1_dx@(x_r_dot-robot.f()) + betta1*h1 + dh1_dx@robot.g()@u_d.value
+        robot.b1_hard[0] = -dh1_dx@(x_r_dot-robot.f()) + dh1_dx@robot.g()@u_d.value
 
-        h2 = y_max-robot.X[1]
+        h2 = (robot.X[1]-y_max)[0]
         robot.A1_hard[1,:] = np.array([0,1]).reshape(1,2)@robot.g()
-        robot.b1_hard[1] = -np.array([0,1]).reshape(1,2)@robot.g()@u_d.value + betta2*h2 - np.array([0,1]).reshape(1,2)@robot.f()
-        
+        robot.b1_hard[1] = -np.array([0,1]).reshape(1,2)@robot.g()@u_d.value - np.array([0,1]).reshape(1,2)@robot.f()
+
+        h.value = np.array([h1,h2]).reshape(2,1)
+
         A1_soft.value = robot.A1_soft
         b1_soft.value = robot.b1_soft
         A1_hard.value = robot.A1_hard
@@ -170,16 +145,15 @@ with writer.saving(fig, movie_name, 100):
         
         u_ref_list[:,i] = u1_ref.value.reshape(2,)
     
-    
         constrained_controller.solve(solver=cp.GUROBI, reoptimize=True)
-        
-        if constrained_controller.status != "optimal":
+
+        print("value for alpha[0], ", alpha.value[0])
+        print("value for h1 ", h1)
+        #print("value for alpha[1], ", alpha.value[1])
+
+        if (constrained_controller.status != "optimal") or ((alpha.value[0]-alpha_0.value[0])>delta_alpha_thresh):
             robot.A1_hard.value[0,:] = np.zeros((1,2))
             robot.b1_hard.value[0] = 0
-            """
-            robot.A1_hard[1,:] = np.zeros((1,2))
-            robot.b1_hard[1] = 0
-            """
             print("here")
             A2_hard.value = robot.A1_hard
             b2_hard.value = robot.b1_hard

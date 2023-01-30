@@ -2,7 +2,7 @@ import numpy as np
 
 class SingleIntegrator2D:
     
-    def __init__(self,X0,dt,ax,id,num_robots=1,num_adversaries = 1, num_obstacles = 0, alpha=0.8, num_constraints_hard = 1, num_constraints_soft = 1, color='r',palpha=1.0,plot=True, num_connectivity = 1, num_eigen_connectivity = 0):
+    def __init__(self,X0,dt,ax,id,num_constraints_hard = 1, num_constraints_soft = 1, color='r',palpha=1.0,plot=True):
         '''
         X0: iniytial state
         dt: simulation time step
