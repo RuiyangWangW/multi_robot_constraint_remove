@@ -52,7 +52,7 @@ min_allowed_trajectory = PointsInCircum(5-d_max,20)[0:11]
 ax.plot(max_allowed_trajectory[:,0],max_allowed_trajectory[:,1],'k')
 ax.plot(min_allowed_trajectory[:,0],min_allowed_trajectory[:,1],'k')
 
-movie_name = 'curved_trajectory_with_small_disturb_alpha.mp4'
+movie_name = 'curved_trajectory_with_large_disturb_alpha.mp4'
 
 
 metadata = dict(title='Movie Test', artist='Matplotlib',comment='Movie support!')
@@ -134,7 +134,7 @@ with writer.saving(fig, movie_name, 100):
         h2 = (y_max - robot.X[1])[0]
         robot.A1_hard[1,:] = np.array([0,1]).reshape(1,2)@robot.g()
         robot.b1_hard[1] = -np.array([0,1]).reshape(1,2)@robot.g()@u_d.value - np.array([0,1]).reshape(1,2)@robot.f()
-
+        
         h.value = np.array([h1,h2]).reshape(2,1)
 
         A1_soft.value = robot.A1_soft
@@ -199,5 +199,15 @@ plt.figure(2)
 plt.plot(tp, alpha_list)
 plt.xlabel("t (s)")
 plt.ylabel("alpha value")
+
+plt.figure(3)
+plt.plot(tp, u_list[0,:])
+plt.plot(tp, u_list[1,:])
+plt.legend(['u_1', 'u_2'])
+
+plt.figure(4)
+plt.plot(tp, u_ref_list[0,:])
+plt.plot(tp, u_ref_list[1,:])
+plt.legend(['u_1', 'u_2'])
 
 plt.show()
