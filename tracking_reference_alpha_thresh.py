@@ -103,6 +103,7 @@ u_list = np.zeros((2, num_steps))
 u_ref_list = np.zeros((2, num_steps))
 x_list = np.zeros((2,num_steps))
 x_target_list = np.zeros((2,num_steps))
+alpha_list = np.zeros(num_steps)
 
 disturbance = True
 delta_alpha_thresh = 20
@@ -144,13 +145,31 @@ with writer.saving(fig, movie_name, 100):
         u1_ref.value = robot.nominal_input(x_r)
         
         u_ref_list[:,i] = u1_ref.value.reshape(2,)
-    
-        constrained_controller.solve(solver=cp.GUROBI, reoptimize=True)
         
-        if (constrained_controller.status != "optimal") or ((alpha.value[0]-alpha_0.value[0])>delta_alpha_thresh):
+        
+        try: 
+            constrained_controller.solve(solver=cp.GUROBI, reoptimize=True)
+            if  constrained_controller.status!="optimal" or ((alpha.value[0]-alpha_0.value[0])>delta_alpha_thresh):
+                robot.A1_hard[0,:] = np.zeros((1,2))
+                robot.b1_hard[0] = 0
+                A2_hard.value = robot.A1_hard
+                b2_hard.value = robot.b1_hard
+                A2_soft.value = robot.A1_soft
+                b2_soft.value = robot.b1_soft
+
+                u2_ref.value = u1_ref.value
+                relaxed_controller.solve(solver=cp.GUROBI, reoptimize=True)
+                if (relaxed_controller.status!="optimal"):
+                    break
+                robot.nextU = u2.value + u_d.value
+
+            else:
+                alpha_list[i] = alpha.value[0]
+                robot.nextU = u1.value + u_d.value
+
+        except:
             robot.A1_hard[0,:] = np.zeros((1,2))
             robot.b1_hard[0] = 0
-            print(t)
             A2_hard.value = robot.A1_hard
             b2_hard.value = robot.b1_hard
             A2_soft.value = robot.A1_soft
@@ -158,9 +177,10 @@ with writer.saving(fig, movie_name, 100):
 
             u2_ref.value = u1_ref.value
             relaxed_controller.solve(solver=cp.GUROBI, reoptimize=True)
+            if (relaxed_controller.status!="optimal"):
+                break
             robot.nextU = u2.value + u_d.value
-        else:
-            robot.nextU = u1.value + u_d.value
+
 
         u_list[:,i] = robot.nextU.reshape(2,)
         robot.step(robot.nextU)
@@ -175,17 +195,8 @@ with writer.saving(fig, movie_name, 100):
 plt.ioff()   
 
 plt.figure(2)
-plt.plot(tp, u_list[0,:])
-plt.plot(tp, u_list[1,:])
-plt.legend(['u_1', 'u_2'])
+plt.plot(tp, alpha_list)
+plt.xlabel("t (s)")
+plt.ylabel("alpha value")
 
-plt.figure(3)
-plt.plot(tp, u_ref_list[0,:])
-plt.plot(tp, u_ref_list[1,:])
-plt.legend(['u_1', 'u_2'])
-
-plt.figure(4)
-plt.plot(x_list[0,:], x_list[1,:])
-plt.plot(x_target_list[0,:], x_target_list[1,:])
-plt.legend(['x', 'x_target'])
 plt.show()
