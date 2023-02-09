@@ -83,7 +83,7 @@ class SingleIntegrator2D:
         return - 5.0 * dV_dx.reshape(-1,1)
     
     def static_safe_set(self, target, d_max):
-        h = d_max - np.linalg.norm(self.X[0:2] - target[0:2])**2
+        h = d_max**2 - np.linalg.norm(self.X[0:2] - target[0:2])**2
         dh_dx = -2*( self.X - target[0:2] ).T
 
         return h , dh_dx

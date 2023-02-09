@@ -114,7 +114,7 @@ with writer.saving(fig, movie_name, 100):
 
         if disturbance:
             if (t >= 5 and t<=10) :
-                u_d.value = np.array([0.0,1.0]).reshape(2,1)
+                u_d.value = np.array([0.0,1.2]).reshape(2,1)
             else:
                 u_d.value = np.zeros((2,1))
 

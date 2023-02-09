@@ -1,5 +1,6 @@
 import numpy as np
 import math
+from scipy.stats import norm
 import time
 import cvxpy as cp
 import matplotlib.pyplot as plt
@@ -18,6 +19,7 @@ t = 0
 alpha = 0.8
 betta1 = 0.8
 betta2 = 0.8
+betta3 = 0.8
 d_max = 0.2
 alpha_cbf = 7.0 
 
@@ -57,7 +59,7 @@ movie_name = 'straight_line_trajectory_without_disturb.mp4'
 # for curved trajectory
 y_max = 6.0
 x0 = np.array([5,0])
-tf = 25
+tf = 15
 num_steps = int(tf/dt)
 U_max = 2.0
 
@@ -79,8 +81,8 @@ rect = patches.Rectangle((-5, y_max), 10, 4, linewidth=1, edgecolor='none', face
 # Add the patch to the Axes
 ax.add_patch(rect)
 ax.plot(trajectory_points[:,0],trajectory_points[:,1],'r--')
-max_allowed_trajectory = PointsInCircum(5+d_max,20)[0:11]
-min_allowed_trajectory = PointsInCircum(5-d_max,20)[0:11]
+max_allowed_trajectory = PointsInCircum(radius+d_max,20)[0:11]
+min_allowed_trajectory = PointsInCircum(radius-d_max,20)[0:11]
 ax.plot(max_allowed_trajectory[:,0],max_allowed_trajectory[:,1],'k')
 ax.plot(min_allowed_trajectory[:,0],min_allowed_trajectory[:,1],'k')
 
@@ -96,7 +98,7 @@ u_d = cp.Parameter((2,1), value = np.zeros((2,1)))
 # Define Unrelaxed Optimization Problem
 u1 = cp.Variable((2,1))
 u1_ref = cp.Parameter((2,1), value = np.zeros((2,1)) )
-num_constraints_hard1 = 2
+num_constraints_hard1 = 3
 num_constraints_soft1 = 1
 A1_hard = cp.Parameter((num_constraints_hard1,2),value=np.zeros((num_constraints_hard1,2)))
 b1_hard = cp.Parameter((num_constraints_hard1,1),value=np.zeros((num_constraints_hard1,1)))
@@ -110,7 +112,7 @@ constrained_controller = cp.Problem( objective1, const1 )
 # Define Relaxed Optimization Problem
 u2 = cp.Variable((2,1))
 u2_ref = cp.Parameter((2,1), value = np.zeros((2,1)) )
-num_constraints_hard2 = 2
+num_constraints_hard2 = 3
 num_constraints_soft2 = 1
 A2_hard = cp.Parameter((num_constraints_hard2,2),value=np.zeros((num_constraints_hard2,2)))
 b2_hard = cp.Parameter((num_constraints_hard2,1),value=np.zeros((num_constraints_hard2,1)))
@@ -132,18 +134,23 @@ u_ref_list = np.zeros((2, num_steps))
 x_list = np.zeros((2,num_steps))
 x_target_list = np.zeros((2,num_steps))
 
+# Define Disturbance Distribution
 disturbance = True
+mean = 0
+std = 2
+disturb_list = np.zeros((num_steps,))
+disturb_max = 6*U_max
 
 with writer.saving(fig, movie_name, 100): 
 
     for i in range(num_steps):
 
         if disturbance:
-            if (t >= 5 and t<=10) :
-                u_d.value = np.array([0.0,1.2]).reshape(2,1)
-            else:
-                u_d.value = np.zeros((2,1))
-
+            y_disturb = norm.pdf(robot.X[0], loc=mean, scale=std)[0] * disturb_max
+            print(y_disturb)
+            u_d.value = np.array([0.0, y_disturb]).reshape(2,1)
+            disturb_list[i] = y_disturb
+        
         x_r = trajectory.get_current_target(t)
         x_target_list[:,i] = x_r.reshape(2,)
         x_list[:,i] = robot.X.reshape(2,)
@@ -152,14 +159,20 @@ with writer.saving(fig, movie_name, 100):
         v, dv_dx = robot.lyapunov(x_r) 
         robot.A1_soft[0,:] = dv_dx@robot.g()
         robot.b1_soft[0] = dv_dx@(x_r_dot-robot.f()) - alpha*v - dv_dx@robot.g()@u_d.value
-
-        h1, dh1_dx = robot.static_safe_set(x_r,d_max)    
+        
+        h1, dh1_dx = robot.static_safe_set(np.zeros((2,1)),radius+d_max)    
         robot.A1_hard[0,:] = -dh1_dx@robot.g()
-        robot.b1_hard[0] = -dh1_dx@(x_r_dot-robot.f()) + betta1*h1 + dh1_dx@robot.g()@u_d.value
+        robot.b1_hard[0] = dh1_dx@robot.f() + betta1*h1 + dh1_dx@robot.g()@u_d.value
 
-        h2 = y_max-robot.X[1]
-        robot.A1_hard[1,:] = np.array([0,1]).reshape(1,2)@robot.g()
-        robot.b1_hard[1] = -np.array([0,1]).reshape(1,2)@robot.g()@u_d.value + betta2*h2 - np.array([0,1]).reshape(1,2)@robot.f()
+        h2, dh2_dx = robot.static_safe_set(np.zeros((2,1)),radius-d_max)
+        h2 = -h2
+        dh2_dx = -dh2_dx
+        robot.A1_hard[1,:] = -dh2_dx@robot.g()
+        robot.b1_hard[1] = dh2_dx@robot.f() + betta2*h2 + dh2_dx@robot.g()@u_d.value
+        
+        h3 = y_max-robot.X[1]
+        robot.A1_hard[2,:] = np.array([0,1]).reshape(1,2)@robot.g()
+        robot.b1_hard[2] = -np.array([0,1]).reshape(1,2)@robot.g()@u_d.value + betta3*h3 - np.array([0,1]).reshape(1,2)@robot.f()
         
         A1_soft.value = robot.A1_soft
         b1_soft.value = robot.b1_soft
@@ -174,13 +187,12 @@ with writer.saving(fig, movie_name, 100):
         try: 
             constrained_controller.solve(solver=cp.GUROBI, reoptimize=True)
             if  constrained_controller.status!="optimal":
-                robot.A1_hard[0,:] = np.zeros((1,2))
-                robot.b1_hard[0] = 0
+                robot.A1_hard[0:2,:] = np.zeros((2,2))
+                robot.b1_hard[0:2] = np.zeros((2,1))
                 A2_hard.value = robot.A1_hard
                 b2_hard.value = robot.b1_hard
                 A2_soft.value = robot.A1_soft
                 b2_soft.value = robot.b1_soft
-                print(t)
                 u2_ref.value = u1_ref.value
                 relaxed_controller.solve(solver=cp.GUROBI, reoptimize=True)
                 if (relaxed_controller.status!="optimal"):
@@ -191,9 +203,8 @@ with writer.saving(fig, movie_name, 100):
                 robot.nextU = u1.value + u_d.value
 
         except:
-            print(t)
-            robot.A1_hard[0,:] = np.zeros((1,2))
-            robot.b1_hard[0] = 0
+            robot.A1_hard[0:2,:] = np.zeros((2,2))
+            robot.b1_hard[0:2] = np.zeros((2,1))
             A2_hard.value = robot.A1_hard
             b2_hard.value = robot.b1_hard
             A2_soft.value = robot.A1_soft
@@ -217,16 +228,9 @@ with writer.saving(fig, movie_name, 100):
 plt.ioff()   
 
 plt.figure(2)
-plt.plot(tp, u_list[0,:])
-plt.plot(tp, u_list[1,:])
-plt.legend(['u_1', 'u_2'])
+plt.plot(tp, disturb_list)
 
 plt.figure(3)
-plt.plot(tp, u_ref_list[0,:])
-plt.plot(tp, u_ref_list[1,:])
-plt.legend(['u_1', 'u_2'])
-
-plt.figure(4)
 plt.plot(x_list[0,:], x_list[1,:])
 plt.plot(x_target_list[0,:], x_target_list[1,:])
 plt.legend(['x', 'x_target'])
