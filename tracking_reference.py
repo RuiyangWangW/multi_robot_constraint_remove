@@ -135,7 +135,7 @@ x_list = np.zeros((2,num_steps))
 x_target_list = np.zeros((2,num_steps))
 
 # Define Disturbance Distribution
-disturbance = False
+disturbance = True
 mean = 0
 std = 2
 disturb_list = np.zeros((num_steps,))

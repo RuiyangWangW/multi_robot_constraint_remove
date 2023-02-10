@@ -56,7 +56,8 @@ max_allowed_trajectory = PointsInCircum(radius+d_max,20)[0:11]
 min_allowed_trajectory = PointsInCircum(radius-d_max,20)[0:11]
 ax.plot(max_allowed_trajectory[:,0],max_allowed_trajectory[:,1],'k')
 ax.plot(min_allowed_trajectory[:,0],min_allowed_trajectory[:,1],'k')
-
+fig.canvas.draw()
+fig.canvas.flush_events()
 
 # Define Trajectory
 radius = 5
@@ -115,105 +116,130 @@ y_min = -2
 y_max = 6.0
 step = 0.01
 x_range = np.arange(start=x_min, stop=x_max, step=step)
+x_fliped_range = np.flip(x_range)
 y_range = np.arange(start=y_min, stop=y_max, step=step)
+y_fliped_range = np.flip(y_range)
 None_list = np.array([None,None]).reshape(2,1)
 u_thresh = 1e-4
+feasible_candidates = []
+for x in x_fliped_range:
+    for y in y_fliped_range:
+        if y >= 0 and (x**2+y**2)>(radius-d_max)**2 and (x**2+y**2)<(radius+d_max)**2:
+            x0 = np.array([x,y])
+            feasible_candidates.append(x0)
 
-for x_0 in x_range:
-    for y_0 in y_range:
-        travelled_path = []
-        x0 = np.array([x_0,y_0])
-        # Define Robot
-        robot = SingleIntegrator2D(x0, dt, ax=ax, id = 0, color='r',palpha=1.0, num_constraints_hard = num_constraints_hard1, num_constraints_soft = num_constraints_soft1, plot=True)
-        t = 0
-        for i in range(num_steps):
-            travelled_path.append(robot.X)
-            pos_key = str(robot.X[0])+","+str(robot.X[1])
-            u_next = control_hash_table.get(pos_key)
-            u_none = (u_next==None_list)[0][0]
-            if u_none:
-                if disturbance:
-                    y_disturb = norm.pdf(robot.X[0], loc=mean, scale=std)[0] * disturb_max
-                    u_d.value = np.array([0.0, y_disturb]).reshape(2,1)
-                    disturb_list[i] = y_disturb
+print(len(feasible_candidates))
 
-                x_r = trajectory.get_current_target(t)
-                x_r_dot = trajectory.x_r_dot(t)
-
-                v, dv_dx = robot.lyapunov(x_r) 
-                robot.A1_soft[0,:] = dv_dx@robot.g()
-                robot.b1_soft[0] = dv_dx@(x_r_dot-robot.f()) - alpha*v - dv_dx@robot.g()@u_d.value
-
-                h1, dh1_dx = robot.static_safe_set(np.zeros((2,1)),radius+d_max)    
-                robot.A1_hard[0,:] = -dh1_dx@robot.g()
-                robot.b1_hard[0] = dh1_dx@robot.f() + betta1*h1 + dh1_dx@robot.g()@u_d.value
-
-                h2, dh2_dx = robot.static_safe_set(np.zeros((2,1)),radius-d_max)
-                h2 = -h2
-                dh2_dx = -dh2_dx
-                robot.A1_hard[1,:] = -dh2_dx@robot.g()
-                robot.b1_hard[1] = dh2_dx@robot.f() + betta2*h2 + dh2_dx@robot.g()@u_d.value
-
-                h3 = y_max-robot.X[1]
-                robot.A1_hard[2,:] = np.array([0,1]).reshape(1,2)@robot.g()
-                robot.b1_hard[2] = -np.array([0,1]).reshape(1,2)@robot.g()@u_d.value + betta3*h3 - np.array([0,1]).reshape(1,2)@robot.f()
-
-                A1_soft.value = robot.A1_soft
-                b1_soft.value = robot.b1_soft
-                A1_hard.value = robot.A1_hard
-                b1_hard.value = robot.b1_hard
-
-                u1_ref.value = robot.nominal_input(x_r)
-
-                try: 
-                    constrained_controller.solve(solver=cp.GUROBI, reoptimize=True)
-                    if  constrained_controller.status!="optimal":
-                        for pos in travelled_path:
-                            pos_key = str(pos[0])+","+str(pos[1])
-                            control_hash_table.update({pos_key: "Fail"})
-                        break
-                    else:
-                        u_next = u1.value + u_d.value
-                        robot.nextU = u_next
-                        robot.step(robot.nextU)
-                        #Needs to round robot's position to cell position
-                        robot.X[0] = x_range[int((robot.X[0]-x_min)/step)]
-                        robot.X[1] = y_range[int((robot.X[1]-y_min)/step)]
-                        control_hash_table.update({pos_key: robot.nextU})
-                except:
+for x0 in feasible_candidates:
+    travelled_path = []
+    # Define Robot
+    robot = SingleIntegrator2D(x0, dt, ax=ax, id = 0, color='r',palpha=1.0, num_constraints_hard = num_constraints_hard1, num_constraints_soft = num_constraints_soft1, plot=False)
+    t = 0
+    print(x0)
+    for i in range(num_steps):
+        travelled_path.append(robot.X)
+        pos_key = str(int((robot.X[0]-x_min)/step))+","+str(int((robot.X[1]-y_min)/step))
+        u_next = control_hash_table.get(pos_key)
+        u_none = (u_next==None_list)[0][0]
+        if u_none:
+            if disturbance:
+                y_disturb = norm.pdf(robot.X[0], loc=mean, scale=std)[0] * disturb_max
+                u_d.value = np.array([0.0, y_disturb]).reshape(2,1)
+                disturb_list[i] = y_disturb
+            #We made x_r time-invariant
+            x_r = np.zeros((2,1))
+            dtheta = 0.1
+            intercept_x = radius*robot.X[0]/np.sqrt(robot.X[0]**2+robot.X[1]**2)
+            intercept_y = radius*robot.X[1]/np.sqrt(robot.X[0]**2+robot.X[1]**2)
+            intercept_theta = np.arctan2(intercept_y,intercept_x)
+            x_r_theta = intercept_theta+dtheta
+            x_r[0] = radius*np.cos(x_r_theta)
+            x_r[1] = radius*np.sin(x_r_theta)
+            if x_r[0] < -5:
+                x_r[0] = -5
+            if x_r[1] < 0:
+                x_r[1] = 0
+            v, dv_dx = robot.lyapunov(x_r) 
+            robot.A1_soft[0,:] = dv_dx@robot.g()
+            robot.b1_soft[0] = -dv_dx@robot.f() - alpha*v - dv_dx@robot.g()@u_d.value
+            
+            h1, dh1_dx = robot.static_safe_set(np.zeros((2,1)),radius+d_max)    
+            robot.A1_hard[0,:] = -dh1_dx@robot.g()
+            robot.b1_hard[0] = dh1_dx@robot.f() + betta1*h1 + dh1_dx@robot.g()@u_d.value
+            h2, dh2_dx = robot.static_safe_set(np.zeros((2,1)),radius-d_max)
+            h2 = -h2
+            dh2_dx = -dh2_dx
+            robot.A1_hard[1,:] = -dh2_dx@robot.g()
+            robot.b1_hard[1] = dh2_dx@robot.f() + betta2*h2 + dh2_dx@robot.g()@u_d.value
+            h3 = y_max-robot.X[1]
+            robot.A1_hard[2,:] = np.array([0,1]).reshape(1,2)@robot.g()
+            robot.b1_hard[2] = -np.array([0,1]).reshape(1,2)@robot.g()@u_d.value + betta3*h3 - np.array([0,1]).reshape(1,2)@robot.f()
+            A1_soft.value = robot.A1_soft
+            b1_soft.value = robot.b1_soft
+            A1_hard.value = robot.A1_hard
+            b1_hard.value = robot.b1_hard
+            u1_ref.value = robot.nominal_input(x_r)
+            try: 
+                constrained_controller.solve(solver=cp.GUROBI, reoptimize=True)
+                if  constrained_controller.status!="optimal":
                     for pos in travelled_path:
-                        pos_key = str(pos[0])+","+str(pos[1])
-                        control_hash_table.update({pos_key: "Fail"})
-                    break
-            else:
-                if u_next == "Fail":
-                    for pos in travelled_path:
-                        pos_key = str(pos[0])+","+str(pos[1])
+                        pos_key = str(int((pos[0]-x_min)/step))+","+str(int((pos[1]-y_min)/step))
                         control_hash_table.update({pos_key: "Fail"})
                     break
                 else:
+                    u_next = u1.value + u_d.value
                     robot.nextU = u_next
                     robot.step(robot.nextU)
                     #Needs to round robot's position to cell position
                     robot.X[0] = x_range[int((robot.X[0]-x_min)/step)]
                     robot.X[1] = y_range[int((robot.X[1]-y_min)/step)]
-                    continue
-            if u_none and u_next!="Fail":
-                print(u_next[0])
+                    control_hash_table.update({pos_key: robot.nextU})
+                    if u_next[0]<=u_thresh and u_next[1]<=u_thresh:
+                        break
+            except:
+                for pos in travelled_path:
+                    pos_key = str(int((pos[0]-x_min)/step))+","+str(int((pos[1]-y_min)/step))
+                    control_hash_table.update({pos_key: "Fail"})
+                break
+        else:
+            if u_next == "Fail":
+                for pos in travelled_path:
+                    pos_key = str(int((pos[0]-x_min)/step))+","+str(int((pos[1]-y_min)/step))
+                    control_hash_table.update({pos_key: "Fail"})
+                break
+            else:
+                robot.nextU = u_next
+                robot.step(robot.nextU)
+                #Needs to round robot's position to cell position
+                robot.X[0] = x_range[int((robot.X[0]-x_min)/step)]
+                robot.X[1] = y_range[int((robot.X[1]-y_min)/step)]
                 if u_next[0]<=u_thresh and u_next[1]<=u_thresh:
                     break
-            t = t + dt
-            robot.render_plot()
-            fig.canvas.draw()
-            fig.canvas.flush_events()
-            
-for x_0 in x_range:
-    for y_0 in y_range:
-        pos_key = str(x_0)+","+str(y_0)
-        u_next = control_hash_table.get(pos_key)
-        if u_next == "Fail":
-            plt.scatter(x_0,y_0,Color='b')
-        else:
-            plt.scatter(x_0,y_0,Color='r')
 
+        t = t + dt
+        """
+        robot.render_plot()
+        fig.canvas.draw()
+        fig.canvas.flush_events()
+        """
+plt.ioff()   
+
+x_fail_list = []
+y_fail_list = []
+x_success_list = []
+y_success_list = []
+for x0 in feasible_candidates:
+    pos_key = str(int((x0[0]-x_min)/step))+","+str(int((x0[1]-y_min)/step))
+    u_next = control_hash_table.get(pos_key)
+    if u_next == "Fail":
+        x_fail_list.append(x0[0])
+        y_fail_list.append(x0[1])
+    else:
+        x_success_list.append(x0[0])
+        y_success_list.append(x0[1])
+print(len(control_hash_table))
+plt.plot(x_fail_list,y_fail_list,'r.')
+print(len(x_fail_list))
+plt.plot(x_success_list,y_success_list,'b.')
+print(len(x_success_list))
 plt.show()
