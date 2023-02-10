@@ -135,7 +135,7 @@ x_list = np.zeros((2,num_steps))
 x_target_list = np.zeros((2,num_steps))
 
 # Define Disturbance Distribution
-disturbance = True
+disturbance = False
 mean = 0
 std = 2
 disturb_list = np.zeros((num_steps,))
@@ -147,10 +147,10 @@ with writer.saving(fig, movie_name, 100):
 
         if disturbance:
             y_disturb = norm.pdf(robot.X[0], loc=mean, scale=std)[0] * disturb_max
-            print(y_disturb)
             u_d.value = np.array([0.0, y_disturb]).reshape(2,1)
             disturb_list[i] = y_disturb
-        
+
+        """
         x_r = trajectory.get_current_target(t)
         x_target_list[:,i] = x_r.reshape(2,)
         x_list[:,i] = robot.X.reshape(2,)
@@ -159,7 +159,30 @@ with writer.saving(fig, movie_name, 100):
         v, dv_dx = robot.lyapunov(x_r) 
         robot.A1_soft[0,:] = dv_dx@robot.g()
         robot.b1_soft[0] = dv_dx@(x_r_dot-robot.f()) - alpha*v - dv_dx@robot.g()@u_d.value
+        """
         
+        #We made x_r time-invariant
+        x_r = np.zeros((2,1))
+        dtheta = 0.1
+        intercept_x = radius*robot.X[0]/np.sqrt(robot.X[0]**2+robot.X[1]**2)
+        intercept_y = radius*robot.X[1]/np.sqrt(robot.X[0]**2+robot.X[1]**2)
+        intercept_theta = np.arctan2(intercept_y,intercept_x)
+        x_r_theta = intercept_theta+dtheta
+        x_r[0] = radius*np.cos(x_r_theta)
+        x_r[1] = radius*np.sin(x_r_theta)
+
+        if x_r[0] < -5:
+            x_r[0] = -5
+        if x_r[1] < 0:
+            x_r[1] = 0
+        
+        x_target_list[:,i] = x_r.reshape(2,)
+        x_list[:,i] = robot.X.reshape(2,)
+
+        v, dv_dx = robot.lyapunov(x_r) 
+        robot.A1_soft[0,:] = dv_dx@robot.g()
+        robot.b1_soft[0] = -dv_dx@robot.f() - alpha*v - dv_dx@robot.g()@u_d.value
+
         h1, dh1_dx = robot.static_safe_set(np.zeros((2,1)),radius+d_max)    
         robot.A1_hard[0,:] = -dh1_dx@robot.g()
         robot.b1_hard[0] = dh1_dx@robot.f() + betta1*h1 + dh1_dx@robot.g()@u_d.value
