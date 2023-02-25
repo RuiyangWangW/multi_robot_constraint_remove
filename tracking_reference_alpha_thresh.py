@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import time
+from scipy.stats import norm
 import cvxpy as cp
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -25,7 +26,7 @@ num_obstacles = 0
 # for curved trajectory
 y_max = 6.0
 x0 = np.array([5,0])
-tf = 25
+tf = 15
 num_steps = int(tf/dt)
 U_max = 2.0
 
@@ -67,7 +68,6 @@ u1_ref = cp.Parameter((2,1), value = np.zeros((2,1)) )
 num_constraints_hard1 = 2
 num_constraints_soft1 = 1
 alpha = cp.Variable((num_constraints_hard1,1))
-alpha_min = cp.Parameter((2,1), value = np.zeros((2,1)))
 alpha_0 = cp.Parameter((num_constraints_hard1,1))
 alpha_0.value = np.array([0.8,0.8]).reshape(num_constraints_hard1,1)
 h = cp.Parameter((num_constraints_hard1,1))
@@ -76,7 +76,7 @@ b1_hard = cp.Parameter((num_constraints_hard1,1),value=np.zeros((num_constraints
 A1_soft = cp.Parameter((num_constraints_soft1,2),value=np.zeros((num_constraints_soft1,2)))
 b1_soft = cp.Parameter((num_constraints_soft1,1),value=np.zeros((num_constraints_soft1,1)))
 slack_constraints1 = cp.Variable((num_constraints_soft1,1))
-const1 = [A1_hard @ u1 <= b1_hard + cp.multiply(alpha,h), A1_soft @ u1 <= b1_soft + slack_constraints1, cp.norm2(u1) <= U_max, alpha>=alpha_min]
+const1 = [A1_hard @ u1 <= b1_hard + cp.multiply(alpha,h), A1_soft @ u1 <= b1_soft + slack_constraints1, cp.norm2(u1) <= U_max]
 objective1 = cp.Minimize( cp.sum_squares( u1 - u1_ref ) + 1000*cp.sum_squares(slack_constraints1) +1000*cp.sum_squares(alpha-alpha_0))
 constrained_controller = cp.Problem( objective1, const1 ) 
 
@@ -105,19 +105,25 @@ x_list = np.zeros((2,num_steps))
 x_target_list = np.zeros((2,num_steps))
 alpha_list = np.zeros(num_steps)
 
-disturbance = True
 delta_alpha_thresh = 20
+
+# Define Disturbance Distribution
+disturbance = True
+mean = 0
+std = 2
+disturb_list = np.zeros((num_steps,))
+disturb_max = 5*U_max
 
 with writer.saving(fig, movie_name, 100): 
 
     for i in range(num_steps):
 
         if disturbance:
-            if (t >= 5 and t<=10) :
-                u_d.value = np.array([0.0,1.2]).reshape(2,1)
-            else:
-                u_d.value = np.zeros((2,1))
+            y_disturb = norm.pdf(robot.X[0], loc=mean, scale=std)[0] * disturb_max
+        else:
+            y_disturb = 0.0
 
+        u_d.value = np.array([0.0, y_disturb]).reshape(2,1)
         x_r = trajectory.get_current_target(t)
         x_target_list[:,i] = x_r.reshape(2,)
         x_list[:,i] = robot.X.reshape(2,)
@@ -162,9 +168,9 @@ with writer.saving(fig, movie_name, 100):
                 if (relaxed_controller.status!="optimal"):
                     break
                 robot.nextU = u2.value + u_d.value
-
             else:
-                alpha_list[i] = alpha.value[0]
+                alpha_eff = (dh1_dx@robot.g()@(u1.value+u_d.value) + dh1_dx@robot.f())/h1
+                alpha_list[i] = alpha_eff
                 robot.nextU = u1.value + u_d.value
 
         except:
@@ -178,6 +184,7 @@ with writer.saving(fig, movie_name, 100):
 
             u2_ref.value = u1_ref.value
             relaxed_controller.solve(solver=cp.GUROBI, reoptimize=True)
+            
             if (relaxed_controller.status!="optimal"):
                 break
             robot.nextU = u2.value + u_d.value
