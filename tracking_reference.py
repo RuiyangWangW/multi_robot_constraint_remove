@@ -164,9 +164,8 @@ with writer.saving(fig, movie_name, 100):
         #We made x_r time-invariant
         x_r = np.zeros((2,1))
         dtheta = 0.1
-        intercept_x = radius*robot.X[0]/np.sqrt(robot.X[0]**2+robot.X[1]**2)
-        intercept_y = radius*robot.X[1]/np.sqrt(robot.X[0]**2+robot.X[1]**2)
-        intercept_theta = np.arctan2(intercept_y,intercept_x)
+        intercept_theta = np.arctan2(robot.X[1],robot.X[0])
+
         x_r_theta = intercept_theta+dtheta
         x_r[0] = radius*np.cos(x_r_theta)
         x_r[1] = radius*np.sin(x_r_theta)

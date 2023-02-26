@@ -9,7 +9,7 @@ from robot_models.SingleIntegrator2D import *
 from Trajectory_Model import *
 from matplotlib.animation import FFMpegWriter
 from scipy.stats import norm
-from discretize_alpha_helper import *
+from discretize_helper import *
 
 plt.rcParams.update({'font.size': 15}) #27
 # Sim Parameters                  
@@ -82,11 +82,20 @@ for x in x_fliped_range:
 alpha_step = 0.5
 alpha_list = np.arange(start=0,stop=50.0+alpha_step,step=alpha_step)
 #"""
-#alpha_list = np.array([0.8])
 
 with multiprocessing.Pool() as pool:
-    for (x0_key, forward_set) in pool.map(forward_cal,feasible_candidates):
+    for (x0_key, forward_set) in pool.map(discretize_alpha_forward_cal,feasible_candidates):
         for forward_cell in forward_set:
+            x = ""
+            for i in range(len(forward_cell)):
+                a = forward_cell[i]
+                if a!=',':
+                    x += a
+                else:
+                    break
+            y = forward_cell[i+1:]
+            x = x_range[int(x)]
+            y = y_range[int(y)]
             if y < 0 or (x**2+y**2)<(radius-d_max)**2 or (x**2+y**2)>(radius+d_max)**2 :
                 continue
             else:
@@ -96,7 +105,7 @@ with multiprocessing.Pool() as pool:
                     backward_set = np.array([x0_key])
                 else:
                     backward_set = np.append(backward_set,np.array([x0_key]),axis=0)
-                control_hash_table.update({forward_cell,backward_set})
+                control_hash_table.update({forward_cell: backward_set})
 
 
 x_success_list = []

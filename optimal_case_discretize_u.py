@@ -94,20 +94,21 @@ for i in range(u_list.shape[0]):
     for j in range(u_list.shape[0]):
         u2d_list[u_list.shape[0]*i+j,:] = np.array([u_list[i],u_list[j]])
 
+# Define Robot
+robot = SingleIntegrator2D(x0, dt, ax=ax, id = 0, color='r',palpha=1.0, num_constraints_hard = 0, num_constraints_soft = 0, plot=False)
+
 for x0 in feasible_candidates:
-    # Define Robot
-    robot = SingleIntegrator2D(x0, dt, ax=ax, id = 0, color='r',palpha=1.0, num_constraints_hard = 0, num_constraints_soft = 0, plot=False)
     print(x0)
     if disturbance:
         y_disturb = norm.pdf(robot.X[0], loc=mean, scale=std)[0] * disturb_max
         u_disturb = np.array([0.0, y_disturb]).reshape(2,1)
     for i in range(u2d_list.shape[0]):
+        robot.X = x0.reshape(-1,1)
         u = u2d_list[i,:].reshape(2,1)
         u_next = u + u_disturb
         robot.nextU = u_next
         robot.step(robot.nextU)
         new_pos = robot.X
-        robot.X = x0.reshape(-1,1)
         x = new_pos[0]
         y = new_pos[1]
         if y < 0 and (x**2+y**2)<(radius-d_max)**2 and (x**2+y**2)>(radius+d_max)**2:

@@ -25,10 +25,10 @@ U_max = 3.0
 num_points = 11
 centroids = PointsInCircum(10,(num_points-1)*2)[1:num_points]
 centroids[6,1] = centroids[6,1] - 1.0
-centroids[7,1] = centroids[7,1] + 7;
-centroids[8,1] = centroids[8,1] + 9;
-centroids[9,1] = centroids[9,1] + 11;
-centroids[9,0] = centroids[9,0] - 2;
+centroids[7,1] = centroids[7,1] + 7
+centroids[8,1] = centroids[8,1] + 9
+centroids[9,1] = centroids[9,1] + 11
+centroids[9,0] = centroids[9,0] - 2
 radii = np.zeros((centroids.shape[0],))+0.7
 alpha_list = np.zeros((centroids.shape[0],))+1.0 #0.8
 Safe_Set_Series = Safe_Set_Series2D(centroids=centroids,radii=radii,alpha_list=alpha_list)
@@ -66,7 +66,7 @@ constrained_controller = cp.Problem( objective1, const1 )
 
 # Define Robot
 x0 = np.array([10,0])
-robot = SingleIntegrator2D(x0, dt, ax, id = 0, color='r',palpha=1.0, alpha=alpha_cbf, num_constraints_hard = num_constraints_hard1, num_constraints_soft = num_constraints_soft1, num_obstacles=num_obstacles)
+robot = SingleIntegrator2D(x0, dt, ax, id = 0, color='r',palpha=1.0, num_constraints_hard = num_constraints_hard1, num_constraints_soft = num_constraints_soft1)
 
 disturbance = True
 
