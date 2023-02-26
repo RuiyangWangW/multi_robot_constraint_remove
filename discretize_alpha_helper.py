@@ -24,8 +24,8 @@ def forward_cal(x0):
     step = 0.01
 
     #Define Alpha
-    alpha_step = 0.2
-    alpha_list = np.arange(start=0,stop=10.0+alpha_step,step=alpha_step)
+    alpha_step = 0.5
+    alpha_list = np.arange(start=0,stop=50.0+alpha_step,step=alpha_step)
     betta = 0.8
 
     # Define Unrelaxed Optimization Problem

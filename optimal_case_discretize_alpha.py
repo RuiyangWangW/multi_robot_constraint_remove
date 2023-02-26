@@ -79,8 +79,8 @@ for x in x_fliped_range:
             feasible_candidates.append(x0)
 # Define alpha_list
 #"""
-alpha_step = 0.2
-alpha_list = np.arange(start=0,stop=10.0+alpha_step,step=alpha_step)
+alpha_step = 0.5
+alpha_list = np.arange(start=0,stop=50.0+alpha_step,step=alpha_step)
 #"""
 #alpha_list = np.array([0.8])
 
