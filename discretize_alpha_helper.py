@@ -50,6 +50,8 @@ def forward_cal(x0):
     else:
         y_disturb = 0.0
     u_disturb = np.array([0.0, y_disturb]).reshape(2,1)
+
+    has_been_added = {}
     for i in range(alpha_list.shape[0]):
         robot.X = x0.reshape(-1,1)
         alpha = alpha_list[i]
@@ -100,7 +102,11 @@ def forward_cal(x0):
         if y < 0 and (x**2+y**2)<(radius-d_max)**2 and (x**2+y**2)>(radius+d_max)**2:
             continue
         pos_key = str(int((x-x_min)/step))+","+str(int((y-y_min)/step))
+        added = has_been_added.get(pos_key)
+        if added:
+            continue
         forward_set = np.append(forward_set,np.array([pos_key]),axis=0)
+        has_been_added.update({pos_key: True})
     print(x0_key)
     print(forward_set.size)
     return x0_key, forward_set
