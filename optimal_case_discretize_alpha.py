@@ -22,7 +22,7 @@ d_max = 0.2
 # for curved trajectory
 tf = 15
 num_steps = int(tf/dt)
-U_max = 2.0
+U_max = 4.0
 y_max = 6.0
 
 
@@ -85,7 +85,7 @@ x_min = -6
 x_max = 6
 y_min = -2 
 y_max = 6.0
-step = 0.1
+step = 0.02
 x_range = np.arange(start=x_min, stop=x_max, step=step)
 x_fliped_range = np.flip(x_range)
 y_range = np.arange(start=y_min, stop=y_max, step=step)
@@ -98,14 +98,17 @@ for x in x_fliped_range:
             x0 = np.array([x,y])
             feasible_candidates.append(x0)
 # Define alpha_list
-"""
-alpha_step = 1.0
-alpha_list = np.arange(start=0,stop=100.0+alpha_step,step=alpha_step)
-"""
-alpha_list = np.array([0.8])
-for x0 in feasible_candidates:
-    # Define Robot
-    robot = SingleIntegrator2D(x0, dt, ax=ax, id = 0, color='r',palpha=1.0, num_constraints_hard = num_constraints_hard1, num_constraints_soft = num_constraints_soft1, plot=False)
+#"""
+alpha_step = 0.2
+alpha_list = np.arange(start=0,stop=10.0+alpha_step,step=alpha_step)
+#"""
+#alpha_list = np.array([0.8])
+# Define Robot
+robot = SingleIntegrator2D(x0, dt, ax=ax, id = 0, color='r',palpha=1.0, num_constraints_hard = num_constraints_hard1, num_constraints_soft = num_constraints_soft1, plot=False)
+
+for idx, x0 in enumerate(feasible_candidates):
+    print(f"idx:{idx}, total:{len(feasible_candidates)}")
+    robot.X = x0.reshape(-1,1)
     if disturbance:
         y_disturb = norm.pdf(robot.X[0], loc=mean, scale=std)[0] * disturb_max
     else:
@@ -158,10 +161,10 @@ for x0 in feasible_candidates:
         robot.X = x0.reshape(-1,1)
         x = new_pos[0]
         y = new_pos[1]
-        print(x0,x_r.reshape(1,2),new_pos.reshape(1,2),u_next.reshape(1,2))
+        #print(x0,x_r.reshape(1,2),new_pos.reshape(1,2),u_next.reshape(1,2))
 
-        #if y < 0 and (x**2+y**2)<(radius-d_max)**2 and (x**2+y**2)>(radius+d_max)**2:
-        #    continue
+        if y < 0 and (x**2+y**2)<(radius-d_max)**2 and (x**2+y**2)>(radius+d_max)**2:
+            continue
         
         pos_key = str(int((x-x_min)/step))+","+str(int((y-y_min)/step))
         backward_set = control_hash_table.get(pos_key)
