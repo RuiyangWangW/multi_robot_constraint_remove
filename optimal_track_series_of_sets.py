@@ -51,11 +51,11 @@ ax.axis('equal')
 
 metadata = dict(title='Movie Test', artist='Matplotlib',comment='Movie support!')
 writer = FFMpegWriter(fps=15, metadata=metadata)
-movie_name = 'series_of_safesets_with_disturb_6_0_alpha_check.mp4'
+movie_name = 'series_of_safesets_with_disturb_6_0.mp4'
 
 #Define Search Map
 control_hash_table = {}
-step = 0.1
+step = 0.05
 x_range = np.arange(start=x_min, stop=x_max, step=step)
 x_fliped_range = np.flip(x_range)
 y_range = np.arange(start=y_min, stop=y_max, step=step)
@@ -79,7 +79,7 @@ for x in x_fliped_range:
 robot = SingleIntegrator2D(x0, dt, ax=ax, id = 0, color='r',palpha=1.0, num_constraints_hard = 0, num_constraints_soft = 0, plot=False)
 
 # Define u_list
-u_step = 1.0
+u_step = 0.1
 u_list = np.arange(start=-U_max,stop=U_max+u_step,step=u_step)
 u2d_list = np.zeros(shape=(u_list.shape[0]**2,2))
 for i in range(u_list.shape[0]):
@@ -208,7 +208,7 @@ with writer.saving(fig, movie_name, 100):
                     u_eff = u
                 h1dot = dh1_dx@robot.f() + dh1_dx@robot.g()@u_eff
                 h2dot = dh2_dx@robot.f() + dh2_dx@robot.g()@u_eff
-                
+                """
                 #Enforcing CBF constraints
                 for alpha in alpha_list:
                     if (h1dot>=-alpha*h1) and (h2dot>=-alpha*h2):
@@ -225,7 +225,7 @@ with writer.saving(fig, movie_name, 100):
                 else:
                     possible_u_filtered = np.append(possible_u_filtered,u_eff.reshape(-1,1),axis=1)
                 h1dot_list = np.append(h1dot_list,np.array(h1dot).reshape(-1,),axis=0)
-                """
+                
         if np.size(possible_u_filtered)==0:
             if active_safe_set_id < num_points-2:
                 active_safe_set_id += 1
