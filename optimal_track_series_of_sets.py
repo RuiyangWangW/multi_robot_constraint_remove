@@ -51,7 +51,7 @@ ax.axis('equal')
 
 metadata = dict(title='Movie Test', artist='Matplotlib',comment='Movie support!')
 writer = FFMpegWriter(fps=15, metadata=metadata)
-movie_name = 'series_of_safesets_with_disturb_6_0_alpha_check.mp4'
+movie_name = 'series_of_safesets_with_disturb_6_0.mp4'
 
 #Define Search Map
 control_hash_table = {}
@@ -206,7 +206,7 @@ with writer.saving(fig, movie_name, 100):
                 u_eff = u
             h1dot = dh1_dx@robot.f() + dh1_dx@robot.g()@u_eff
             h2dot = dh2_dx@robot.f() + dh2_dx@robot.g()@u_eff
-            
+            """
             #Enforcing CBF constraints
             for alpha in alpha_list:
                 if (h1dot>=-alpha*h1) and (h2dot>=-alpha*h2):
@@ -223,7 +223,7 @@ with writer.saving(fig, movie_name, 100):
             else:
                 possible_u_filtered = np.append(possible_u_filtered,u_eff.reshape(-1,1),axis=1)
             h1dot_list = np.append(h1dot_list,np.array(h1dot).reshape(-1,),axis=0)
-            """
+            
         if np.size(possible_u_filtered)==0:
             if active_safe_set_id < num_points-2:
                 active_safe_set_id += 1
@@ -231,12 +231,6 @@ with writer.saving(fig, movie_name, 100):
             else:
                 break
 
-        if Safe_Set_Series.sets_reached(robot) or delta_t>=tf/(num_points-2)-0.1:
-            if active_safe_set_id < num_points-2:
-                active_safe_set_id += 1
-                delta_t = 0
-            else:
-                break
         
         idx = np.argmax(h1dot_list)
         u_best = possible_u_filtered[:,idx].reshape(-1,1)
@@ -247,6 +241,14 @@ with writer.saving(fig, movie_name, 100):
         print(i)
         print(active_safe_set_id)
         delta_t += dt
+
+        if Safe_Set_Series.sets_reached(robot) or delta_t>=tf/(num_points-2)-0.1:
+            if active_safe_set_id < num_points-2:
+                active_safe_set_id += 1
+                delta_t = 0
+            else:
+                break
+        
         writer.grab_frame()
 
         
