@@ -126,7 +126,7 @@ def discretize_u_forward_cal(x0):
     x_min = -6.0
     x_max = 6
 
-    step = 0.05
+    step = 0.1
 
 
     # Define u_list

@@ -51,11 +51,11 @@ ax.axis('equal')
 
 metadata = dict(title='Movie Test', artist='Matplotlib',comment='Movie support!')
 writer = FFMpegWriter(fps=15, metadata=metadata)
-movie_name = 'series_of_safesets_with_disturb_6_0.mp4'
+movie_name = 'series_of_safesets_with_disturb_6_0_alpha_check.mp4'
 
 #Define Search Map
 control_hash_table = {}
-step = 0.05
+step = 0.1
 x_range = np.arange(start=x_min, stop=x_max, step=step)
 x_fliped_range = np.flip(x_range)
 y_range = np.arange(start=y_min, stop=y_max, step=step)
@@ -67,6 +67,7 @@ disturbance = True
 mean = 0
 std = 2
 disturb_max = -8.0*U_max
+
 
 for x in x_fliped_range:
     for y in y_fliped_range:
@@ -140,6 +141,7 @@ alpha_list = np.arange(start=0,stop=50.0+alpha_step,step=alpha_step)
 
 
 active_safe_set_id = 0
+delta_t = 0.0
 with writer.saving(fig, movie_name, 100): 
     for i in range(num_steps):
         current_pos = robot.X
@@ -204,6 +206,8 @@ with writer.saving(fig, movie_name, 100):
                 u_eff = u
             h1dot = dh1_dx@robot.f() + dh1_dx@robot.g()@u_eff
             h2dot = dh2_dx@robot.f() + dh2_dx@robot.g()@u_eff
+            
+            #Enforcing CBF constraints
             for alpha in alpha_list:
                 if (h1dot>=-alpha*h1) and (h2dot>=-alpha*h2):
                     if np.size(possible_u_filtered)==0:
@@ -212,8 +216,14 @@ with writer.saving(fig, movie_name, 100):
                         possible_u_filtered = np.append(possible_u_filtered,u_eff.reshape(-1,1),axis=1)
                     h1dot_list = np.append(h1dot_list,np.array(h1dot).reshape(-1,),axis=0)
                     break
-        
-
+            """
+            #Removing CBF constraints
+            if np.size(possible_u_filtered)==0:
+                possible_u_filtered = u_eff.reshape(-1,1)
+            else:
+                possible_u_filtered = np.append(possible_u_filtered,u_eff.reshape(-1,1),axis=1)
+            h1dot_list = np.append(h1dot_list,np.array(h1dot).reshape(-1,),axis=0)
+            """
         if np.size(possible_u_filtered)==0:
             if active_safe_set_id < num_points-2:
                 active_safe_set_id += 1
@@ -221,9 +231,10 @@ with writer.saving(fig, movie_name, 100):
             else:
                 break
 
-        if Safe_Set_Series.sets_reached(robot):
+        if Safe_Set_Series.sets_reached(robot) or delta_t>=tf/(num_points-2)-0.1:
             if active_safe_set_id < num_points-2:
                 active_safe_set_id += 1
+                delta_t = 0
             else:
                 break
         
@@ -234,7 +245,8 @@ with writer.saving(fig, movie_name, 100):
         fig.canvas.draw()
         fig.canvas.flush_events()
         print(i)
-
+        print(active_safe_set_id)
+        delta_t += dt
         writer.grab_frame()
 
         
