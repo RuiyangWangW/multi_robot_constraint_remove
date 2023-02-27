@@ -151,22 +151,68 @@ with writer.saving(fig, movie_name, 100):
             u_disturb = np.array([0.0, y_disturb[0]]).reshape(2,1)
         current_pos_key = str(int((current_pos[0]-x_min)/step))+","+str(int((current_pos[1]-y_min)/step))
         Safe_Set_Series.id = active_safe_set_id
-        centroid = Safe_Set_Series.return_centroid()
+        centroid = Safe_Set_Series.return_centroid(None)
         r = Safe_Set_Series.return_radius()
         x_target_range = np.arange(start=centroid[0]-r,stop=centroid[0]+r+step,step=step)
         y_target_range = np.arange(start=centroid[1]-r,stop=centroid[1]+r+step,step=step)
         target_pos = np.array([])
+        in_target_pos = {}
+
         for x in x_target_range:
             for y in y_target_range:
                 if ((x-centroid[0]**2)+(y-centroid[1]**2)) <= r**2:
                     pos_key = str(int((x-x_min)/step))+","+str(int((y-y_min)/step))
                     target_pos = np.append(target_pos,np.array([pos_key]),axis=0)
+                    in_target_pos.update({pos_key: True})
+
+        if active_safe_set_id < num_points-2:
+            next_target_pos = np.array([])
+            in_next_target_pos = {}
+            centroid_next = Safe_Set_Series.return_centroid(active_safe_set_id+1)
+            x_next_target_range = np.arange(start=centroid_next[0]-r,stop=centroid_next[0]+r+step,step=step)
+            y_next_target_range = np.arange(start=centroid_next[1]-r,stop=centroid_next[1]+r+step,step=step)
+            for x in x_target_range:
+                for y in y_target_range:
+                    if ((x-centroid_next[0]**2)+(y-centroid_next[1]**2)) <= r**2:
+                        pos_key = str(int((x-x_min)/step))+","+str(int((y-y_min)/step))
+                        next_target_pos = np.append(next_target_pos,np.array([pos_key]),axis=0)
+                        in_next_target_pos.update({pos_key: True})            
+            target_pos_filtered = np.array([])
+            in_target_pos_filtered = {}
+            while next_target_pos.size > 0:
+                node = next_target_pos[0]
+                next_target_pos = np.delete(next_target_pos, obj=0, axis=0)
+                if (control_hash_table.get(node)):
+                    backward_set,_ = control_hash_table.get(node)
+                else:
+                    continue
+                filtered_backward_set = np.array([])
+                for idx,cell in enumerate(backward_set):
+                    if (in_next_target_pos.get(cell)):
+                        continue
+                    else:
+                        if (in_target_pos.get(cell)):
+                            if in_target_pos_filtered.get(cell):
+                                continue
+                            else:
+                                target_pos_filtered = np.append(target_pos_filtered,np.array([cell],axis=0))
+                                in_target_pos_filtered.update({cell: True})
+                        else:
+                            filtered_backward_set = np.append(filtered_backward_set,np.array([cell]),axis=0)
+                            in_next_target_pos.update({cell: True})
+                if np.size(filtered_backward_set)==0:
+                    continue
+                if np.size(next_target_pos)> 0:
+                    next_target_pos = np.append(next_target_pos,filtered_backward_set,axis=0)
+                else:
+                    next_target_pos = filtered_backward_set
+        else:
+            target_pos_filtered = target_pos
 
         possible_u = np.array([])
-        in_target_pos = {}
-        while target_pos.size > 0:
-            node = target_pos[0]
-            target_pos = np.delete(target_pos, obj=0, axis=0)
+        while target_pos_filtered.size > 0:
+            node = target_pos_filtered[0]
+            target_pos_filtered = np.delete(target_pos_filtered, obj=0, axis=0)
             
             if (control_hash_table.get(node)):
                 backward_set,ulist = control_hash_table.get(node)
@@ -190,9 +236,9 @@ with writer.saving(fig, movie_name, 100):
             if np.size(filtered_backward_set)==0:
                 continue
             if np.size(target_pos)> 0:
-                target_pos = np.append(target_pos,filtered_backward_set,axis=0)
+                target_pos_filtered = np.append(target_pos_filtered,filtered_backward_set,axis=0)
             else:
-                target_pos = filtered_backward_set
+                target_pos_filtered = filtered_backward_set
 
         possible_u_filtered = np.array([])
         h1, dh1_dx =  Safe_Set_Series.safe_set_h(robot)
