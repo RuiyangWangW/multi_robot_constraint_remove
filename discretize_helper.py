@@ -25,7 +25,7 @@ def discretize_alpha_forward_cal(x0):
 
     #Define Alpha
     alpha_step = 0.5
-    alpha_list = np.arange(start=0,stop=50.0+alpha_step,step=alpha_step)
+    alpha_list = np.arange(start=0,stop=10.0+alpha_step,step=alpha_step)
     betta = 0.8
 
     # Define Unrelaxed Optimization Problem
@@ -52,6 +52,7 @@ def discretize_alpha_forward_cal(x0):
     u_disturb = np.array([0.0, y_disturb]).reshape(2,1)
 
     has_been_added = {}
+    ulist = np.array([])
     for i in range(alpha_list.shape[0]):
         robot.X = x0.reshape(-1,1)
         alpha = alpha_list[i]
@@ -107,7 +108,11 @@ def discretize_alpha_forward_cal(x0):
             continue
         forward_set = np.append(forward_set,np.array([pos_key]),axis=0)
         has_been_added.update({pos_key: True})
-    return x0_key, forward_set
+        if np.size(ulist) == 0:
+            ulist = np.array([u1.value]).reshape(-1,1) 
+        else:
+            ulist = np.append(ulist,np.array([u1.value]).reshape(-1,1),axis=1)
+    return x0_key, forward_set, ulist
 
 def discretize_u_forward_cal(x0):
     #Define Constants

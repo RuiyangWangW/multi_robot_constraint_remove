@@ -16,7 +16,7 @@ plt.rcParams.update({'font.size': 15}) #27
 # Sim Parameters                  
 dt = 0.05
 t = 0
-tf = 15
+tf = 20
 num_steps = int(tf/dt)
 
 # Define Parameters for CLF and CBF
@@ -51,7 +51,7 @@ ax.axis('equal')
 
 metadata = dict(title='Movie Test', artist='Matplotlib',comment='Movie support!')
 writer = FFMpegWriter(fps=15, metadata=metadata)
-movie_name = 'series_of_safesets_with_disturb_6_0_alpha_check.mp4'
+movie_name = 'series_of_safesets_with_disturb_6_0_alpha_downwind.mp4'
 
 #Define Search Map
 control_hash_table = {}
@@ -123,7 +123,7 @@ for x0 in feasible_candidates:
 """
 
 with multiprocessing.Pool() as pool:
-    for (x0_key, forward_set, ulist_ford) in pool.map(discretize_u_forward_cal,feasible_candidates):
+    for (x0_key, forward_set, ulist_ford) in pool.map(discretize_alpha_forward_cal,feasible_candidates):
         for idx, forward_cell in enumerate(forward_set):
             if (control_hash_table.get(forward_cell)):
                 backward_set,ulist = control_hash_table.get(forward_cell)
@@ -165,14 +165,14 @@ with writer.saving(fig, movie_name, 100):
                     target_pos = np.append(target_pos,np.array([pos_key]),axis=0)
                     in_target_pos.update({pos_key: True})
 
-        if active_safe_set_id < num_points-2:
+        if False:
             next_target_pos = np.array([])
             in_next_target_pos = {}
             centroid_next = Safe_Set_Series.return_centroid(active_safe_set_id+1)
             x_next_target_range = np.arange(start=centroid_next[0]-r,stop=centroid_next[0]+r+step,step=step)
             y_next_target_range = np.arange(start=centroid_next[1]-r,stop=centroid_next[1]+r+step,step=step)
-            for x in x_target_range:
-                for y in y_target_range:
+            for x in x_next_target_range:
+                for y in y_next_target_range:
                     if ((x-centroid_next[0]**2)+(y-centroid_next[1]**2)) <= r**2:
                         pos_key = str(int((x-x_min)/step))+","+str(int((y-y_min)/step))
                         next_target_pos = np.append(next_target_pos,np.array([pos_key]),axis=0)
@@ -195,7 +195,7 @@ with writer.saving(fig, movie_name, 100):
                             if in_target_pos_filtered.get(cell):
                                 continue
                             else:
-                                target_pos_filtered = np.append(target_pos_filtered,np.array([cell],axis=0))
+                                target_pos_filtered = np.append(target_pos_filtered,np.array([cell]),axis=0)
                                 in_target_pos_filtered.update({cell: True})
                         else:
                             filtered_backward_set = np.append(filtered_backward_set,np.array([cell]),axis=0)
@@ -255,34 +255,22 @@ with writer.saving(fig, movie_name, 100):
                 h1dot = dh1_dx@robot.f() + dh1_dx@robot.g()@u_eff
                 h2dot = dh2_dx@robot.f() + dh2_dx@robot.g()@u_eff
                 
-                #Enforcing CBF constraints
-                for alpha in alpha_list:
-                    if (h1dot>=-alpha*h1) and (h2dot>=-alpha*h2):
-                        if np.size(possible_u_filtered)==0:
-                            possible_u_filtered = u_eff.reshape(-1,1)
-                        else:
-                            possible_u_filtered = np.append(possible_u_filtered,u_eff.reshape(-1,1),axis=1)
-                        h1dot_list = np.append(h1dot_list,np.array(h1dot).reshape(-1,),axis=0)
-                        break
-                """
-                #Removing CBF constraints
                 if np.size(possible_u_filtered)==0:
                     possible_u_filtered = u_eff.reshape(-1,1)
                 else:
                     possible_u_filtered = np.append(possible_u_filtered,u_eff.reshape(-1,1),axis=1)
                 h1dot_list = np.append(h1dot_list,np.array(h1dot).reshape(-1,),axis=0)
-                """
+
         if np.size(possible_u_filtered)==0:
             if active_safe_set_id < num_points-2:
                 active_safe_set_id += 1
+                print(active_safe_set_id)
                 continue
             else:
                 break
 
         
         idx = np.argmax(h1dot_list)
-        if (h1dot_list[idx]<0):
-            print("here")
         u_best = possible_u_filtered[:,idx].reshape(-1,1)
         robot.step(u_best)
         robot.render_plot()
@@ -292,7 +280,7 @@ with writer.saving(fig, movie_name, 100):
         print(active_safe_set_id)
         delta_t += dt
 
-        if Safe_Set_Series.sets_reached(robot) or delta_t>=tf/(num_points-2)-0.1:
+        if Safe_Set_Series.sets_reached(robot) or delta_t>=tf/(num_points-2):
             if active_safe_set_id < num_points-2:
                 active_safe_set_id += 1
                 delta_t = 0
