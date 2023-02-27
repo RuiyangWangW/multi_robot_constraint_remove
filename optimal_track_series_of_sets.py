@@ -35,7 +35,7 @@ ax = plt.axes(xlim=(x_min,x_max),ylim=(y_min,y_max+2))
 ax.set_xlabel("X")
 ax.set_ylabel("Y")
 # Define Series of Safe Sets
-num_points = 11
+num_points = 21
 centroids = PointsInCircum(r=5,n=(num_points-1)*2)[1:num_points]
 rect = patches.Rectangle((-5, y_max), 10, 4, linewidth=1, edgecolor='none', facecolor='k')
 # Add the patch to the Axes
@@ -55,7 +55,7 @@ movie_name = 'series_of_safesets_with_disturb_6_0.mp4'
 
 #Define Search Map
 control_hash_table = {}
-step = 0.1
+step = 0.05
 x_range = np.arange(start=x_min, stop=x_max, step=step)
 x_fliped_range = np.flip(x_range)
 y_range = np.arange(start=y_min, stop=y_max, step=step)
@@ -66,7 +66,7 @@ feasible_candidates = []
 disturbance = True
 mean = 0
 std = 2
-disturb_max = -6.0*U_max
+disturb_max = -8.0*U_max
 
 for x in x_fliped_range:
     for y in y_fliped_range:
@@ -77,7 +77,7 @@ for x in x_fliped_range:
 robot = SingleIntegrator2D(x0, dt, ax=ax, id = 0, color='r',palpha=1.0, num_constraints_hard = 0, num_constraints_soft = 0, plot=False)
 
 # Define u_list
-u_step = 1.0
+u_step = 0.1
 u_list = np.arange(start=-U_max,stop=U_max+u_step,step=u_step)
 u2d_list = np.zeros(shape=(u_list.shape[0]**2,2))
 for i in range(u_list.shape[0]):
@@ -122,8 +122,6 @@ for x0 in feasible_candidates:
 
 with multiprocessing.Pool() as pool:
     for (x0_key, forward_set, ulist_ford) in pool.map(discretize_u_forward_cal,feasible_candidates):
-        #print(forward_set.shape)
-        #print(ulist_ford.shape)
         for idx, forward_cell in enumerate(forward_set):
             if (control_hash_table.get(forward_cell)):
                 backward_set,ulist = control_hash_table.get(forward_cell)

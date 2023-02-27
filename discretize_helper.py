@@ -115,10 +115,10 @@ def discretize_u_forward_cal(x0):
     U_max = 2.0
 
     #Define Disturbance
-    disturbance = True
+    disturbance = False
     mean = 0.0
     std = 2.0
-    disturb_max = -6.0 * U_max
+    disturb_max = -8.0 * U_max
 
     #Define Grid
     y_max = 6.0
@@ -126,11 +126,11 @@ def discretize_u_forward_cal(x0):
     x_min = -6.0
     x_max = 6
 
-    step = 0.1
+    step = 0.05
 
 
     # Define u_list
-    u_step = 1.0
+    u_step = 0.1
     u_list = np.arange(start=-U_max,stop=U_max+u_step,step=u_step)
     u2d_list = np.zeros(shape=(u_list.shape[0]**2,2))
     for i in range(u_list.shape[0]):
