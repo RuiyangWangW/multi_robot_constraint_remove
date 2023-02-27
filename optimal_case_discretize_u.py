@@ -12,7 +12,7 @@ from matplotlib.animation import FFMpegWriter
 
 plt.rcParams.update({'font.size': 15}) #27
 # Sim Parameters                  
-dt = 0.05
+dt = 0.5
 t = 0
 
 # Define Parameters for CLF and CBF
@@ -65,7 +65,6 @@ trajectory = Trajectory2D(trajectory_points=trajectory_points,tot_time=trajector
 disturbance = True
 mean = 0
 std = 2
-disturb_list = np.zeros((num_steps,))
 disturb_max = 6*U_max
 
 #Define Search Map
@@ -74,7 +73,7 @@ x_min = -6
 x_max = 6
 y_min = -2 
 y_max = 6.0
-step = 0.01
+step = 0.1
 x_range = np.arange(start=x_min, stop=x_max, step=step)
 x_fliped_range = np.flip(x_range)
 y_range = np.arange(start=y_min, stop=y_max, step=step)
@@ -86,13 +85,20 @@ for x in x_fliped_range:
         if y >= 0 and (x**2+y**2)>(radius-d_max)**2 and (x**2+y**2)<(radius+d_max)**2:
             x0 = np.array([x,y])
             feasible_candidates.append(x0)
+
 # Define u_list
-u_step = 0.1
+u_step = 1.0
 u_list = np.arange(start=-U_max,stop=U_max+u_step,step=u_step)
 u2d_list = np.zeros(shape=(u_list.shape[0]**2,2))
 for i in range(u_list.shape[0]):
     for j in range(u_list.shape[0]):
-        u2d_list[u_list.shape[0]*i+j,:] = np.array([u_list[i],u_list[j]])
+        if u_list[i]==0 and u_list[j]==0:
+            continue
+        u = np.array([u_list[i],u_list[j]])
+        print(u)
+        u /= np.linalg.norm(u)
+        u *= U_max
+        u2d_list[u_list.shape[0]*i+j,:] = u.reshape(-1,2)
 
 # Define Robot
 robot = SingleIntegrator2D(x0, dt, ax=ax, id = 0, color='r',palpha=1.0, num_constraints_hard = 0, num_constraints_soft = 0, plot=False)
