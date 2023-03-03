@@ -16,12 +16,10 @@ class Safe_Set_Series2D:
         return h, dh_dx
     
     def return_centroid(self,id):
-        if id == None:
-            id = self.id
         return self.centroids[id]
     
-    def return_radius(self):
-        return self.radii[self.id]
+    def return_radius(self,id):
+        return self.radii[id]
 
     def safe_set_constraints(self,robot,u_d):
         h, dh_dx = robot.static_safe_set(target=self.centroids[self.id,:].reshape(2,1),d_max=self.radii[self.id])

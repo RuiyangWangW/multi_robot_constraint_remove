@@ -123,7 +123,7 @@ def discretize_u_forward_cal(x0):
     disturbance = True
     mean = 0.0
     std = 2.0
-    disturb_max = -6.0 * U_max
+    disturb_max = 6.0 * U_max
 
     #Define Grid
     y_max = 6.0
@@ -131,11 +131,11 @@ def discretize_u_forward_cal(x0):
     x_min = -6.0
     x_max = 6
 
-    step = 0.05
+    step = 0.1
 
 
     # Define u_list
-    u_step = 0.1
+    u_step = 1.0
     u_list = np.arange(start=-U_max,stop=U_max+u_step,step=u_step)
     u2d_list = np.zeros(shape=(u_list.shape[0]**2,2))
     for i in range(u_list.shape[0]):
@@ -149,20 +149,19 @@ def discretize_u_forward_cal(x0):
 
     robot = SingleIntegrator2D(x0, dt, ax=None, id = 0, color='r',palpha=1.0, num_constraints_hard = 0, num_constraints_soft = 0, plot=False)
     forward_set = np.array([])
+
     ulist = np.array([])
     if disturbance:
-        y_disturb = norm.pdf(x0, loc=mean, scale=std)[0] * disturb_max
+        y_disturb = norm.pdf(x0[0], loc=mean, scale=std) * disturb_max
         u_disturb = np.array([0.0, y_disturb]).reshape(2,1)
-    
+    else:
+        u_disturb = np.zeros(shape=(2,1))
     x0_key = str(int((x0[0]-x_min)/step))+","+str(int((x0[1]-y_min)/step))
     has_been_added = {}
     for i in range(u2d_list.shape[0]):
         robot.X = x0.reshape(-1,1)
         u = u2d_list[i,:].reshape(2,1)
-        if disturbance:
-            u_next = u + u_disturb
-        else:
-            u_next = u
+        u_next = u + u_disturb
         robot.nextU = u_next
         robot.step(robot.nextU)
         new_pos = robot.X
@@ -176,9 +175,9 @@ def discretize_u_forward_cal(x0):
             continue
         forward_set = np.append(forward_set,np.array([pos_key]),axis=0)
         if np.size(ulist) == 0:
-            ulist = np.array([u]).reshape(-1,1) 
+            ulist = np.array([u_next]).reshape(-1,1) 
         else:
-            ulist = np.append(ulist,np.array([u]).reshape(-1,1),axis=1)
+            ulist = np.append(ulist,np.array([u_next]).reshape(-1,1),axis=1)
         has_been_added.update({pos_key: True})
 
     return x0_key, forward_set, ulist
