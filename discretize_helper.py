@@ -116,17 +116,17 @@ def discretize_alpha_forward_cal(x0):
 
 def discretize_u_forward_cal(x0):
     #Define Constants
-    dt = 0.1
+    dt = 0.05
     U_max = 2.0
 
     #Define Disturbance
     disturbance = True
     mean = 0.0
-    std = 2.0
-    disturb_max = 6.0 * U_max
+    std = 1.0
+    disturb_max = 8.0 * U_max
 
     #Define Grid
-    y_max = 6.0
+    y_max = 7.0
     y_min = -2.0
     x_min = -6.0
     x_max = 6
@@ -135,7 +135,7 @@ def discretize_u_forward_cal(x0):
 
 
     # Define u_list
-    u_step = 1.0
+    u_step = 0.5
     u_list = np.arange(start=-U_max,stop=U_max+u_step,step=u_step)
     u2d_list = np.zeros(shape=(u_list.shape[0]**2,2))
     for i in range(u_list.shape[0]):
@@ -167,8 +167,10 @@ def discretize_u_forward_cal(x0):
         new_pos = robot.X
         x = new_pos[0]
         y = new_pos[1]
-        if y>y_max or y<y_min or x>x_max or x<x_min:
+        if y > y_max or y < y_min or x > x_max or x < x_min:
             continue
+        if ((x >= -0.8) and (x <= 0.8) and (y >= 4.5) and (y <= 5.0)) or ((y >= (1.73*x+12.81)) or (y >= (-1.73*x+12.81))):
+           continue
         pos_key = str(int((x-x_min)/step))+","+str(int((y-y_min)/step))
         added = has_been_added.get(pos_key)
         if added:
