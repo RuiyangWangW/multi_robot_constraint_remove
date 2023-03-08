@@ -123,7 +123,7 @@ def discretize_u_forward_cal(x0):
     disturbance = True
     mean = 0.0
     std = 1.0
-    disturb_max = 8.0 * U_max
+    disturb_max = 6.0 * U_max
 
     #Define Grid
     y_max = 7.0
@@ -150,7 +150,7 @@ def discretize_u_forward_cal(x0):
     robot = SingleIntegrator2D(x0, dt, ax=None, id = 0, color='r',palpha=1.0, num_constraints_hard = 0, num_constraints_soft = 0, plot=False)
     forward_set = np.array([])
 
-    ulist = np.array([])
+    dist_list = np.array([])
     if disturbance:
         y_disturb = norm.pdf(x0[0], loc=mean, scale=std) * disturb_max
         u_disturb = np.array([0.0, y_disturb]).reshape(2,1)
@@ -176,10 +176,12 @@ def discretize_u_forward_cal(x0):
         if added:
             continue
         forward_set = np.append(forward_set,np.array([pos_key]),axis=0)
-        if np.size(ulist) == 0:
-            ulist = np.array([u_next]).reshape(-1,1) 
+        dist = np.sqrt((int((x-x_min)/step)-int((x0[0]-x_min)/step))**2 + \
+               (int((y-y_min)/step)-int((x0[1]-y_min)/step))**2)
+        if np.size(dist_list) == 0:
+            dist_list = np.array([dist]).reshape(-1,1) 
         else:
-            ulist = np.append(ulist,np.array([u_next]).reshape(-1,1),axis=1)
+            dist_list = np.append(dist_list,np.array([dist]))
         has_been_added.update({pos_key: True})
 
-    return x0_key, forward_set, ulist
+    return x0_key, forward_set, dist_list

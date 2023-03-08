@@ -5,6 +5,7 @@ import cvxpy as cp
 import multiprocessing
 import copy
 import matplotlib as mpl
+from queue import PriorityQueue
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from scipy.stats import norm
@@ -65,7 +66,7 @@ ax.axis('equal')
 
 metadata = dict(title='Movie Test', artist='Matplotlib',comment='Movie support!')
 writer = FFMpegWriter(fps=15, metadata=metadata)
-movie_name = 'series_of_safesets_with_polytope_obstacle_large_wind.mp4'
+movie_name = 'series_of_safesets_with_polytope_obstacle_medium_wind.mp4'
 
 
 #Define Search Map
@@ -85,9 +86,8 @@ for x in x_fliped_range:
         x0 = np.array([x,y])
         feasible_candidates.append(x0)
 
-
 with multiprocessing.Pool() as pool:
-    for (x0_key, forward_set, u_ford) in pool.map(discretize_u_forward_cal,feasible_candidates):
+    for (x0_key, forward_set, dist_ford) in pool.map(discretize_u_forward_cal,feasible_candidates):
         for idx, forward_cell in enumerate(forward_set):
             x = ""
             for i in range(len(forward_cell)):
@@ -105,12 +105,12 @@ with multiprocessing.Pool() as pool:
                 continue
             if (in_control_hash_table.get(forward_cell)==None):
                 backward_set = np.array([x0_key])
-                ulist = np.array([u_ford[:,idx]]).reshape(2,1)
+                dist_back = np.array([dist_ford[idx]])
             else:
-                backward_set, ulist = control_hash_table.get(forward_cell)
+                backward_set, dist_back = control_hash_table.get(forward_cell)
                 backward_set = np.append(backward_set,np.array([x0_key]))
-                ulist = np.append(ulist,np.array([u_ford[:,idx]]).reshape(2,1),axis=1)
-            control_hash_table.update({forward_cell: (backward_set, ulist)})
+                dist_back = np.append(dist_back,np.array([dist_ford[idx]]))
+            control_hash_table.update({forward_cell: (backward_set, dist_back)})
             in_control_hash_table.update({forward_cell: True})
 
 
@@ -194,53 +194,42 @@ with writer.saving(fig, movie_name, 100):
         if active_safe_set_id == 1:
             print("here")
         if len(final_path) == 0:
-            r = Safe_Set_Series.radii[-1]
-            possible_node_list = []
-            possible_u_list = []
+            possible_node_list = PriorityQueue()
             in_path_list = {}
-
             pos_key = str(int((centroid[0]-x_min)/step))+","+str(int((centroid[1]-y_min)/step))
             in_success_table = pos_in_success_table.get(pos_key)
             if (in_success_table):
-                possible_node_list.append([pos_key])
-                possible_u_list.append([np.zeros(shape=(2,1))])
+                possible_node_list.put((0, [pos_key]))
                 in_path_list.update({pos_key: True})
-            
-            if len(possible_node_list) == 0:
+
+            if possible_node_list.empty():
                 active_safe_set_id += 1
                 continue
 
-            while possible_node_list:
-
-                possible_path = possible_node_list.pop(0)
-
-                possible_u = possible_u_list.pop(0)
+            while ~possible_node_list.empty():
+                prev_weight, possible_path = possible_node_list.get()
                 node = possible_path[-1]
 
                 if node == current_pos_key:
                     final_path = possible_path
                     final_path.pop(-1)
-                    final_u = possible_u
                     break
 
                 if (in_control_hash_table.get(node)==None):
                     continue
                 else:
-                    backward_set,ulist = control_hash_table.get(node)
+                    backward_set,dist_back = control_hash_table.get(node)
 
                 for idx,cell in enumerate(backward_set):
                     if in_path_list.get(cell) == True:
                         continue
                     new_path = copy.deepcopy(possible_path)
                     new_path.append(cell)
-                    possible_node_list.append(new_path)
-                    new_u = copy.deepcopy(possible_u)
-                    new_u.append(np.array(ulist[:,idx]).reshape(2,1))
-                    possible_u_list.append(new_u)
+                    weight = dist_back[idx] + prev_weight
+                    possible_node_list.put((weight, new_path))
                     in_path_list.update({cell: True})
 
         chosen_node = final_path.pop(-1)
-        applied_u = final_u.pop(-1)
 
         chosen_x = ""
         for i in range(len(chosen_node)):
