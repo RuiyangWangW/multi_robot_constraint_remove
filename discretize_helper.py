@@ -116,22 +116,24 @@ def discretize_alpha_forward_cal(x0):
 
 def discretize_u_forward_cal(x0):
     #Define Constants
-    dt = 0.05
+    dt = 0.1
     U_max = 2.0
 
     #Define Disturbance
     disturbance = True
     mean = 0.0
     std = 1.0
-    disturb_max = 6.0 * U_max
+    disturb_max = 8.0 * U_max
 
     #Define Grid
     y_max = 7.0
     y_min = -2.0
     x_min = -6.0
     x_max = 6
-
     step = 0.1
+
+    x_range = np.arange(start=x_min, stop=x_max+step, step=step)
+    y_range = np.arange(start=y_min, stop=y_max+step, step=step)
 
 
     # Define u_list
@@ -156,8 +158,12 @@ def discretize_u_forward_cal(x0):
         u_disturb = np.array([0.0, y_disturb]).reshape(2,1)
     else:
         u_disturb = np.zeros(shape=(2,1))
+
     x0_key = str(int((x0[0]-x_min)/step))+","+str(int((x0[1]-y_min)/step))
+
     has_been_added = {}
+
+    
     for i in range(u2d_list.shape[0]):
         robot.X = x0.reshape(-1,1)
         u = u2d_list[i,:].reshape(2,1)
@@ -175,13 +181,16 @@ def discretize_u_forward_cal(x0):
         added = has_been_added.get(pos_key)
         if added:
             continue
+        has_been_added.update({pos_key: True})
         forward_set = np.append(forward_set,np.array([pos_key]),axis=0)
-        dist = np.sqrt((int((x-x_min)/step)-int((x0[0]-x_min)/step))**2 + \
-               (int((y-y_min)/step)-int((x0[1]-y_min)/step))**2)
+        #dist = np.sqrt((int((x-x_min)/step)-int((x0[0]-x_min)/step))**2 + \
+        #       (int((y-y_min)/step)-int((x0[1]-y_min)/step))**2)
+        x = x_range[int((x-x_min)/step)]
+        y = y_range[int((y-y_min)/step)]
+        dist = np.sqrt((x-x0[0])**2+(y-x0[1])**2)
         if np.size(dist_list) == 0:
             dist_list = np.array([dist]).reshape(-1,1) 
         else:
             dist_list = np.append(dist_list,np.array([dist]))
-        has_been_added.update({pos_key: True})
-
+    
     return x0_key, forward_set, dist_list

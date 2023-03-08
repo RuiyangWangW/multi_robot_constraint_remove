@@ -66,7 +66,7 @@ ax.axis('equal')
 
 metadata = dict(title='Movie Test', artist='Matplotlib',comment='Movie support!')
 writer = FFMpegWriter(fps=15, metadata=metadata)
-movie_name = 'series_of_safesets_with_polytope_obstacle_medium_wind.mp4'
+movie_name = 'series_of_safesets_with_polytope_obstacle_large_wind.mp4'
 
 
 #Define Search Map
@@ -85,6 +85,7 @@ for x in x_fliped_range:
             continue
         x0 = np.array([x,y])
         feasible_candidates.append(x0)
+
 
 with multiprocessing.Pool() as pool:
     for (x0_key, forward_set, dist_ford) in pool.map(discretize_u_forward_cal,feasible_candidates):
@@ -112,8 +113,6 @@ with multiprocessing.Pool() as pool:
                 dist_back = np.append(dist_back,np.array([dist_ford[idx]]))
             control_hash_table.update({forward_cell: (backward_set, dist_back)})
             in_control_hash_table.update({forward_cell: True})
-
-
 
 x0 = np.array([5.0,0.0])
 robot = SingleIntegrator2D(x0, dt, ax=ax, id = 0, color='r',palpha=1.0, num_constraints_hard = 0, num_constraints_soft = 0, plot=True)
@@ -221,13 +220,18 @@ with writer.saving(fig, movie_name, 100):
                     backward_set,dist_back = control_hash_table.get(node)
 
                 for idx,cell in enumerate(backward_set):
-                    if in_path_list.get(cell) == True:
-                        continue
                     new_path = copy.deepcopy(possible_path)
                     new_path.append(cell)
                     weight = dist_back[idx] + prev_weight
-                    possible_node_list.put((weight, new_path))
-                    in_path_list.update({cell: True})
+                    if in_path_list.get(cell) != None:
+                        curr_weight = in_path_list.get(cell)
+                        if (weight < curr_weight):
+                            possible_node_list.put((weight, new_path))
+                        else:
+                            continue
+                    else:
+                        possible_node_list.put((weight, new_path))
+                    in_path_list.update({cell: weight})
 
         chosen_node = final_path.pop(-1)
 

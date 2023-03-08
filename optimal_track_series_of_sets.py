@@ -16,7 +16,7 @@ from discretize_helper import *
 
 plt.rcParams.update({'font.size': 15}) #27
 # Sim Parameters                  
-dt = 0.05
+dt = 0.1
 t = 0
 tf = 20
 num_steps = int(tf/dt)
@@ -53,7 +53,7 @@ ax.axis('equal')
 
 metadata = dict(title='Movie Test', artist='Matplotlib',comment='Movie support!')
 writer = FFMpegWriter(fps=15, metadata=metadata)
-movie_name = 'series_of_safesets_with_medium_wind.mp4'
+movie_name = 'series_of_safesets_with_large_wind.mp4'
 
 
 #Define Search Map
@@ -200,13 +200,18 @@ with writer.saving(fig, movie_name, 100):
                     backward_set,dist_back = control_hash_table.get(node)
 
                 for idx,cell in enumerate(backward_set):
-                    if in_path_list.get(cell) == True:
-                        continue
                     new_path = copy.deepcopy(possible_path)
                     new_path.append(cell)
                     weight = dist_back[idx] + prev_weight
-                    possible_node_list.put((weight, new_path))
-                    in_path_list.update({cell: True})
+                    if in_path_list.get(cell) != None:
+                        curr_weight = in_path_list.get(cell)
+                        if (weight < curr_weight):
+                            possible_node_list.put((weight, new_path))
+                        else:
+                            continue
+                    else:
+                        possible_node_list.put((weight, new_path))
+                    in_path_list.update({cell: weight})
 
         chosen_node = final_path.pop(-1)
         chosen_x = ""
